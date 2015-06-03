@@ -24,6 +24,8 @@
 #include "pointmatcher_ros/point_cloud.h"
 #include "pointmatcher_ros/transform.h"
 
+#include "pointcloud_tools/CloudRecorder.h"
+
 #include "husky_trainer/AnchorPoint.h"
 #include "husky_trainer/PointMatching.h"
 
@@ -34,7 +36,7 @@
 #define WHEEL_TRAVEL_TOPIC "/husky/data/encoders"
 #define VEL_TOPIC "/husky/cmd_vel"
 
-#define ROBOT_FRAME "/base_link"
+#define ROBOT_FRAME "/base_footprint"
 #define LIDAR_FRAME "/velodyne"
 
 #define Y_BUTTON_INDEX 3
@@ -57,6 +59,7 @@ ros::Time teachingStartTime;
 std::vector<AnchorPoint> anchorPointList;
 geometry_msgs::Pose lastOdomPosition;
 PM::TransformationParameters tLidarToBaseLink;
+ros::ServiceClient* pCrClient;
 
 void saveAnchorPointList(std::vector<AnchorPoint>& list)
 {
@@ -91,11 +94,14 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 
             PM::DataPoints transformedCloud = applyTransform(dataPoints, tLidarToBaseLink);
 
-            // Save the anchor point to a file.
-            std::string anchorPointFilename = "anchor_" + boost::to_string(nextCloudIndex++) + ".vtk";
-            PointMatcherIO<float>::saveVTK(transformedCloud, anchorPointFilename);
+            pointcloud_tools::CloudRecorder service;
+            service.request.cloud = PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedCloud, "base_link", ros::Time(0));
+            if(!pCrClient->call(service))
+            {
+                ROS_WARN("There was something wrong with the cloud recording service.");
+            }
 
-            AnchorPoint newAnchorPoint(anchorPointFilename, lastOdomPosition);
+            AnchorPoint newAnchorPoint(service.response.filename, lastOdomPosition);
             anchorPointList.push_back(newAnchorPoint);
 
             ROS_INFO("Saved a cloud.");
@@ -126,7 +132,6 @@ void odomCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
             boost::lexical_cast<std::string>((ros::Time::now() - teachingStartTime).toSec()) << "," <<
             geo_util::poseToString(lastOdomPosition);
     }
-
 }
 
 void encodersCallback(const clearpath_base::Encoders::ConstPtr& msg)
@@ -162,6 +167,8 @@ int main(int argc, char **argv)
         n.subscribe(WHEEL_TRAVEL_TOPIC, 1000, encodersCallback);
     ros::Subscriber velTopic =
         n.subscribe(VEL_TOPIC, 1000, velocityCallback);
+    ros::ServiceClient crClient = n.serviceClient<pointcloud_tools::CloudRecorder>("cloud_recorder");
+    pCrClient = &crClient;
     tf::TransformListener tfListener;
 
     std::ofstream positionRecord("positions.pl");
