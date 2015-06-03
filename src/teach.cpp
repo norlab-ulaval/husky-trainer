@@ -7,6 +7,8 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_io.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread.hpp>
 
 #include <ros/ros.h>
 #include <ros/topic.h>
@@ -58,6 +60,7 @@ float travelOfLastAnchor;
 // Path recording information.
 ros::Time teachingStartTime;
 std::vector<AnchorPoint> anchorPointList;
+boost::mutex anchorPointListMutex;
 geometry_msgs::Pose lastOdomPosition;
 PM::TransformationParameters tLidarToBaseLink;
 ros::ServiceClient* pCrClient;
@@ -73,6 +76,25 @@ void saveAnchorPointList(std::vector<AnchorPoint>& list)
     }
 
     anchorPointListFile.close();
+}
+
+void recordCloud(const sensor_msgs::PointCloud2& cloud)
+{
+    pointcloud_tools::CloudRecorder service;
+    service.request.cloud = cloud;
+    if(!pCrClient->call(service))
+    {
+        ROS_WARN("There was something wrong with the cloud recording service.");
+    }
+
+    while(!anchorPointListMutex.try_lock())
+    {}
+
+    AnchorPoint newAnchorPoint(service.response.filename, lastOdomPosition);
+    anchorPointList.push_back(newAnchorPoint);
+
+    anchorPointListMutex.unlock();
+    ROS_INFO("Saved a cloud.");
 }
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
@@ -94,17 +116,8 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 
             PM::DataPoints transformedCloud = applyTransform(dataPoints, tLidarToBaseLink);
 
-            pointcloud_tools::CloudRecorder service;
-            service.request.cloud = PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedCloud, "base_link", ros::Time(0));
-            if(!pCrClient->call(service))
-            {
-                ROS_WARN("There was something wrong with the cloud recording service.");
-            }
-
-            AnchorPoint newAnchorPoint(service.response.filename, lastOdomPosition);
-            anchorPointList.push_back(newAnchorPoint);
-
-            ROS_INFO("Saved a cloud.");
+            sensor_msgs::PointCloud2 transformedMsg = PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedCloud, "base_link", ros::Time(0));
+            boost::thread cloudRecordingThread(recordCloud, transformedMsg);
         }
         else
         {
