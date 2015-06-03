@@ -2,6 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <math.h>
+#include <cmath>
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_io.hpp>
@@ -76,14 +77,13 @@ void saveAnchorPointList(std::vector<AnchorPoint>& list)
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 {
-    ROS_INFO("Travel: %f", lastTravelRecorded - travelOfLastAnchor);
+    ROS_INFO("Travel: %f", fabs(lastTravelRecorded - travelOfLastAnchor));
 
     if(teachingStartTime != ros::Time(0))
     {
         // Check if we traveled enough to get a new cloud, or if the travel value
         // has overflowed since the last cloud was recorded.
-        if(lastTravelRecorded - travelOfLastAnchor > ANCHOR_POINT_DISTANCE ||
-                lastTravelRecorded < travelOfLastAnchor)
+        if(fabs(lastTravelRecorded - travelOfLastAnchor) > ANCHOR_POINT_DISTANCE)
         {
             travelOfLastAnchor = lastTravelRecorded;
 
