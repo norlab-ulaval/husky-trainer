@@ -28,7 +28,7 @@
 #include "husky_trainer/PointMatching.h"
 #include "husky_trainer/MatchClouds.h"
 
-#define JOY_TOPIC "/joy"
+#define JOY_TOPIC "joy"
 #define CLOUD_TOPIC "/cloud"
 #define CMD_TOPIC "/husky/cmd_vel"
 #define WORLD_FRAME "/odom"
@@ -37,7 +37,7 @@
 
 #define POS_FILE_DELIMITER ','
 #define ICP_CONFIG_FILE "config.yaml"
-#define X_BUTTON_INDEX 2
+#define Y_BUTTON_INDEX 3
 #define LOOP_RATE 100
 
 // TODO: Turn those next parameters into variables and interface them to be changed easily.
@@ -165,6 +165,7 @@ std::vector< boost::tuple<double,geometry_msgs::Twist> > loadCommands()
         }
     }
 
+    commandFile.close();
     return retVal;
 }
 
@@ -193,6 +194,7 @@ std::vector< boost::tuple<double,geometry_msgs::Pose> > loadPositions()
         }
     }   
 
+    positionFile.close();
     return retVal;
 }
 
@@ -208,6 +210,7 @@ std::vector< AnchorPoint > loadAnchorPoints()
         retVal.back().loadFromDisk();
     }
 
+    anchorPointsFile.close();
     return retVal;
 }
 
@@ -267,10 +270,11 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 
 void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 {
-    if(msg->buttons[X_BUTTON_INDEX] == 1)
+    if(msg->buttons[Y_BUTTON_INDEX] == 1 && repeatBeginTime == ros::Time(0))
     {
         repeatBeginTime = ros::Time::now();
         repeatBegan = true;
+        ROS_INFO("Starting playback.");
     }
 }
 
@@ -291,12 +295,6 @@ int main(int argc, char **argv)
     pPmService = &pmClient;
     tf::TransformListener tfListener;
 
-    // Fetch and store the transformation from the lidar to the base_link, we'll need it when
-    // comparing the points clouds.
-    tFromLidarToBaseLink  =
-            PointMatcher_ros::transformListenerToEigenMatrix<float>(tfListener, ROBOT_FRAME,
-                                                                    LIDAR_FRAME, ros::Time(0));
-
     positionList = loadPositions();
     positionBegin = positionList.begin();
     positionEnd = positionList.end();
@@ -310,44 +308,49 @@ int main(int argc, char **argv)
     anchorPoints = loadAnchorPoints();
     ROS_INFO("Loaded anchor points");
 
-    repeatBeginTime = ros::Time::now();
     currentError = ControlError(0.0,0.0,0.0);
 
+    // Fetch and store the transformation from the lidar to the base_link, we'll need it when
+    // comparing the points clouds.
+    tFromLidarToBaseLink  =
+            PointMatcher_ros::transformListenerToEigenMatrix<float>(tfListener, ROBOT_FRAME,
+                                                                    LIDAR_FRAME, ros::Time(0));
     ros::Duration lookaheadAdjustedTime;
     ros::Duration nextCommandTime;
 
-    ROS_INFO("Starting Playback");
-
     while(ros::ok() && nextCommand < commandList.size())
     {
-        lookaheadAdjustedTime.fromSec(SPEED_LOOKAHEAD);
-        lookaheadAdjustedTime += ros::Time::now() - repeatBeginTime;
-
-        nextCommandTime.fromSec(commandList[nextCommand].get<0>());
-
-        if(lookaheadAdjustedTime > nextCommandTime)
+        if(repeatBegan)
         {
-            simTime.fromSec(commandList[nextCommand].get<0>());
-            //cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
-            cmd.publish(commandList[nextCommand++].get<1>());
-        }
+            lookaheadAdjustedTime.fromSec(SPEED_LOOKAHEAD);
+            lookaheadAdjustedTime += ros::Time::now() - repeatBeginTime;
 
-        // Update the reference position
-        geometry_msgs::Pose posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
+            nextCommandTime.fromSec(commandList[nextCommand].get<0>());
 
-        if(count % 100 == 0)
-        {
-            //ROS_INFO("T: %lf, X: %lf, Y: %lf", simTime.toSec(), posOfTime.position.x, posOfTime.position.y);
-
-            if(anchorPoints.size() > 0)
+            if(lookaheadAdjustedTime > nextCommandTime)
             {
-                closestAnchorIndex = closestAnchor(anchorPoints, posOfTime);
-                ROS_INFO("Closest anchor: %d", closestAnchorIndex);
-            } else {
-                ROS_INFO("No anchor point found.");
+                simTime.fromSec(commandList[nextCommand].get<0>());
+                //cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
+                cmd.publish(commandList[nextCommand++].get<1>());
+            }
+
+            // Update the reference position
+            geometry_msgs::Pose posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
+
+            if(count % 100 == 0)
+            {
+                //ROS_INFO("T: %lf, X: %lf, Y: %lf", simTime.toSec(), posOfTime.position.x, posOfTime.position.y);
+
+                if(anchorPoints.size() > 0)
+                {
+                    closestAnchorIndex = closestAnchor(anchorPoints, posOfTime);
+                    ROS_INFO("Closest anchor: %d", closestAnchorIndex);
+                } else {
+                    ROS_INFO("No anchor point found.");
+                }
             }
         }
-        
+
         ros::spinOnce();
         loop_rate.sleep();
         count++;

@@ -1,7 +1,7 @@
 #include "husky_trainer/GeoUtil.h"
 
 #define GEO_UTIL_SEP ","
-#define SCAN_RADIUS_BALLPARK 10.0
+#define SCAN_RADIUS_BALLPARK 1.0
 
 namespace geo_util
 {
