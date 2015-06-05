@@ -22,7 +22,7 @@ ControlError controlErrorOfTransformation(geometry_msgs::Transform transformatio
                         geo_util::quatTo2dYaw(transformation.rotation));
 }
 
-sensor_msgs::PointCloud2 applyTransform(sensor_msgs::PointCloud2ConstPtr cloud,
+sensor_msgs::PointCloud2 applyTransform(const sensor_msgs::PointCloud2& cloud,
                                         PM::TransformationParameters transform)
 {
     if(!validateTransformation(transform))
@@ -30,7 +30,7 @@ sensor_msgs::PointCloud2 applyTransform(sensor_msgs::PointCloud2ConstPtr cloud,
         ROS_ERROR("Invalid transformation applied to reference point cloud.");
     }
 
-    DP datapointsOfMsg = PointMatcher_ros::rosMsgToPointMatcherCloud<float>(*cloud);
+    DP datapointsOfMsg = PointMatcher_ros::rosMsgToPointMatcherCloud<float>(cloud);
 
     DP transformedDataPoints = applyTransform(datapointsOfMsg, transform);
 

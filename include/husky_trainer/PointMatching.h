@@ -22,7 +22,7 @@ PointMatcher<float>::DataPoints applyTransform(PointMatcher<float>::DataPoints c
                                                PointMatcher<float>::TransformationParameters transform);
 bool validateTransformation(PointMatcher<float>::TransformationParameters t);
 ControlError controlErrorOfTransformation(geometry_msgs::Transform transformation);
-sensor_msgs::PointCloud2 applyTransform(sensor_msgs::PointCloud2ConstPtr cloud,
+sensor_msgs::PointCloud2 applyTransform(const sensor_msgs::PointCloud2 &cloud,
                                         PointMatcher<float>::TransformationParameters transform);
 
 #endif

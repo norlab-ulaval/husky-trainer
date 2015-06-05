@@ -221,7 +221,7 @@ geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist originalCommand, 
     return originalCommand;
 }
 
-void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
+void updateError(const sensor_msgs::PointCloud2& msg)
 {
     // If no anchor points are defined, we have no use for a point cloud.
     if(anchorPoints.size() == 0)
@@ -258,6 +258,11 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
     {
         ROS_WARN("There was a problem with the point matching service.");
     }
+}
+
+void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
+{
+    boost::thread thread(updateError, *msg);
 }
 
 void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
@@ -323,7 +328,8 @@ int main(int argc, char **argv)
         if(lookaheadAdjustedTime > nextCommandTime)
         {
             simTime.fromSec(commandList[nextCommand].get<0>());
-            cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
+            //cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
+            cmd.publish(commandList[nextCommand++].get<1>());
         }
 
         // Update the reference position

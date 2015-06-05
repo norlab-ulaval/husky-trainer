@@ -3,6 +3,7 @@
 #include <fstream>
 #include <math.h>
 #include <cmath>
+#include <iostream>
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_io.hpp>
@@ -27,8 +28,6 @@
 #include "pointmatcher_ros/point_cloud.h"
 #include "pointmatcher_ros/transform.h"
 
-#include "pointcloud_tools/CloudRecorder.h"
-
 #include "husky_trainer/AnchorPoint.h"
 #include "husky_trainer/PointMatching.h"
 
@@ -38,6 +37,7 @@
 #define POSE_ESTIMATE_TOPIC "/robot_pose_ekf/odom_combined"
 #define WHEEL_TRAVEL_TOPIC "/husky/data/encoders"
 #define VEL_TOPIC "/husky/cmd_vel"
+#define CLOUD_RECORDER_TOPIC "/anchor_points"
 
 #define ROBOT_FRAME "/base_footprint"
 #define LIDAR_FRAME "/velodyne"
@@ -63,7 +63,7 @@ std::vector<AnchorPoint> anchorPointList;
 boost::mutex anchorPointListMutex;
 geometry_msgs::Pose lastOdomPosition;
 PM::TransformationParameters tLidarToBaseLink;
-ros::ServiceClient* pCrClient;
+ros::Publisher* pCloudRecorderTopic;
 
 void saveAnchorPointList(std::vector<AnchorPoint>& list)
 {
@@ -78,23 +78,28 @@ void saveAnchorPointList(std::vector<AnchorPoint>& list)
     anchorPointListFile.close();
 }
 
-void recordCloud(const sensor_msgs::PointCloud2& cloud)
+void recordCloud(const sensor_msgs::PointCloud2& msg)
 {
-    pointcloud_tools::CloudRecorder service;
-    service.request.cloud = cloud;
-    if(!pCrClient->call(service))
-    {
-        ROS_WARN("There was something wrong with the cloud recording service.");
-    }
 
-    while(!anchorPointListMutex.try_lock())
-    {}
+    PM::DataPoints dataPoints;
+    dataPoints = PointMatcher_ros::rosMsgToPointMatcherCloud<float>(msg);
 
-    AnchorPoint newAnchorPoint(service.response.filename, lastOdomPosition);
+    PM::DataPoints transformedCloud = applyTransform(dataPoints, tLidarToBaseLink);
+
+    sensor_msgs::PointCloud2 transformedMsg =
+            PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedCloud, "base_link", ros::Time(0));
+
+    pCloudRecorderTopic->publish(transformedMsg);
+
+    std::stringstream ss;
+    ss << transformedMsg.header.seq << ".vtk";
+    std::string filename = ss.str();
+
+    AnchorPoint newAnchorPoint(filename, lastOdomPosition);
+
+    while(!anchorPointListMutex.try_lock()) {}
     anchorPointList.push_back(newAnchorPoint);
-
     anchorPointListMutex.unlock();
-    ROS_INFO("Saved a cloud.");
 }
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
@@ -107,17 +112,17 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
         // has overflowed since the last cloud was recorded.
         if(fabs(lastTravelRecorded - travelOfLastAnchor) > ANCHOR_POINT_DISTANCE)
         {
+            ros::Time startTime = ros::Time::now();
+
             travelOfLastAnchor = lastTravelRecorded;
 
             ROS_INFO("Saving a new anchor point");
 
-            PM::DataPoints dataPoints;
-            dataPoints = PointMatcher_ros::rosMsgToPointMatcherCloud<float>(*msg);
 
-            PM::DataPoints transformedCloud = applyTransform(dataPoints, tLidarToBaseLink);
 
-            sensor_msgs::PointCloud2 transformedMsg = PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedCloud, "base_link", ros::Time(0));
-            boost::thread cloudRecordingThread(recordCloud, transformedMsg);
+            boost::thread cloudRecordingThread(recordCloud, *msg);
+
+            ROS_INFO("The cloud callback took: %lf", (ros::Time::now() - startTime).toSec());
         }
         else
         {
@@ -180,9 +185,9 @@ int main(int argc, char **argv)
         n.subscribe(WHEEL_TRAVEL_TOPIC, 1000, encodersCallback);
     ros::Subscriber velTopic =
         n.subscribe(VEL_TOPIC, 1000, velocityCallback);
-    ros::ServiceClient crClient = n.serviceClient<pointcloud_tools::CloudRecorder>("cloud_recorder");
-    pCrClient = &crClient;
     tf::TransformListener tfListener;
+    ros::Publisher cloudRecorderTopic = n.advertise<sensor_msgs::PointCloud2>(CLOUD_RECORDER_TOPIC, 100);
+    pCloudRecorderTopic = &cloudRecorderTopic;
 
     std::ofstream positionRecord("positions.pl");
     std::ofstream speedRecord("speeds.sl");
