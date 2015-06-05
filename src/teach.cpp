@@ -65,6 +65,7 @@ geometry_msgs::Pose lastOdomPosition;
 PM::TransformationParameters tLidarToBaseLink;
 ros::Publisher* pCloudRecorderTopic;
 
+
 void saveAnchorPointList(std::vector<AnchorPoint>& list)
 {
     std::ofstream anchorPointListFile;
@@ -89,10 +90,12 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
     sensor_msgs::PointCloud2 transformedMsg =
             PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedCloud, "base_link", ros::Time(0));
 
+    transformedMsg.header.seq = nextCloudIndex;
+
     pCloudRecorderTopic->publish(transformedMsg);
 
     std::stringstream ss;
-    ss << transformedMsg.header.seq << ".vtk";
+    ss << nextCloudIndex++ << ".vtk";
     std::string filename = ss.str();
 
     AnchorPoint newAnchorPoint(filename, lastOdomPosition);
@@ -173,7 +176,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "husky_teach");
     ros::NodeHandle n;
 
-    nextCloudIndex = 0;     
+    nextCloudIndex = 0;
     anchorPointList = std::vector<AnchorPoint>();
 
     ros::Subscriber sub = n.subscribe(POINT_CLOUD_TOPIC, 10, cloudCallback);
