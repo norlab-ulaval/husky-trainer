@@ -219,7 +219,7 @@ geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist originalCommand, 
     originalCommand.angular.z =
             originalCommand.angular.z - LAMBDA_Y * error.get<1>() - LAMBDA_THETA * error.get<2>();
     originalCommand.linear.x =
-            originalCommand.linear.x * cos(error.get<1>() - LAMBDA_X * error.get<0>());
+            originalCommand.linear.x * cos(error.get<1>()) - LAMBDA_X * error.get<0>();
 
     return originalCommand;
 }
@@ -330,7 +330,7 @@ int main(int argc, char **argv)
             if(lookaheadAdjustedTime > nextCommandTime)
             {
                 simTime.fromSec(commandList[nextCommand].get<0>());
-                //cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
+                cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
                 cmd.publish(commandList[nextCommand++].get<1>());
             }
 
