@@ -1,0 +1,6 @@
+
+<launch>
+    <node name="cloud_matcher" pkg="pointmatcher_ros" type="matcher_service" args="_config:=$(arg
+        icp_config)" />
+    <node name="repeat_node" pkg="husky_trainer" type="husky_repeat_node" />
+</launch>

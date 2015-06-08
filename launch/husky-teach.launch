@@ -1,0 +1,5 @@
+<launch>
+    <node name="cloud_recorder" pkg="pointcloud_tools" type="cloud-recorder"
+            args="_source:=/anchor_points" />
+    <node name="teach_node" pkg="husky_trainer" type="husky_teach_node" />
+</launch>
