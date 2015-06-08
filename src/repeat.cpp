@@ -41,10 +41,10 @@
 #define LOOP_RATE 100
 
 // TODO: Turn those next parameters into variables and interface them to be changed easily.
-#define LAMBDA_X 0.6
-#define LAMBDA_Y 14.0
-#define LAMBDA_THETA 3.5
-#define SPEED_LOOKAHEAD 0.2
+#define DEFAULT_LAMBDA_X 0.6
+#define DEFAULT_LAMBDA_Y 2.0
+#define DEFAULT_LAMBDA_THETA 0.5
+#define DEFAULT_SPEED_LOOKAHEAD 0.2
 
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
@@ -64,6 +64,10 @@ std::vector< boost::tuple<double, geometry_msgs::Pose> > positionList;
 std::vector< boost::tuple<double, geometry_msgs::Pose> >::iterator positionBegin;
 std::vector< boost::tuple<double, geometry_msgs::Pose> >::iterator positionEnd;
 
+double lambdaX;
+double lambdaY;
+double lambdaTheta;
+double lookahead;
 
 int closestAnchor(const std::vector<AnchorPoint>& anchorPointList,
                   const geometry_msgs::Pose position)
@@ -216,10 +220,18 @@ std::vector< AnchorPoint > loadAnchorPoints()
 
 geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist originalCommand, ControlError error)
 {
-    originalCommand.angular.z =
-            originalCommand.angular.z - LAMBDA_Y * error.get<1>() - LAMBDA_THETA * error.get<2>();
-    originalCommand.linear.x =
-            originalCommand.linear.x * cos(error.get<1>()) - LAMBDA_X * error.get<0>();
+    float newAngular = originalCommand.angular.z - lambdaY * error.get<1>() - lambdaTheta * error.get<2>();
+    float newLinear = originalCommand.linear.x * cos(error.get<1>()) - lambdaX * error.get<0>();
+
+    if(originalCommand.angular.z != 0.0 || originalCommand.linear.x != 0.0)
+    {
+        ROS_INFO("Corrections (angular, linear): %f, %f",
+                 (newAngular - originalCommand.angular.z),
+                 (newLinear - originalCommand.linear.x));
+    }
+
+    originalCommand.angular.z = newAngular;
+    originalCommand.linear.x = newLinear;
 
     return originalCommand;
 }
@@ -295,6 +307,11 @@ int main(int argc, char **argv)
     pPmService = &pmClient;
     tf::TransformListener tfListener;
 
+    n.param<double>("~lx", lambdaX, DEFAULT_LAMBDA_X);
+    n.param<double>("~ly", lambdaY, DEFAULT_LAMBDA_Y);
+    n.param<double>("~lt", lambdaTheta, DEFAULT_LAMBDA_THETA);
+    n.param<double>("~lookahead", lookahead, DEFAULT_SPEED_LOOKAHEAD);
+
     positionList = loadPositions();
     positionBegin = positionList.begin();
     positionEnd = positionList.end();
@@ -322,7 +339,7 @@ int main(int argc, char **argv)
     {
         if(repeatBegan)
         {
-            lookaheadAdjustedTime.fromSec(SPEED_LOOKAHEAD);
+            lookaheadAdjustedTime.fromSec(lookahead);
             lookaheadAdjustedTime += ros::Time::now() - repeatBeginTime;
 
             nextCommandTime.fromSec(commandList[nextCommand].get<0>());
@@ -331,17 +348,16 @@ int main(int argc, char **argv)
             {
                 simTime.fromSec(commandList[nextCommand].get<0>());
                 cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
-                cmd.publish(commandList[nextCommand++].get<1>());
+                //cmd.publish(commandList[nextCommand++].get<1>());
             }
 
-            // Update the reference position
+            // Update the reference position.
             geometry_msgs::Pose posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
 
             if(closestAnchorIndex != anchorPoints.size() - 1 &&
                     geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex].getPosition()) >
                     geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex + 1].getPosition()))
             {
-
                 closestAnchorIndex++;
                 ROS_INFO("Swapping to anchor point number: %d", closestAnchorIndex);
             }
