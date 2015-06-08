@@ -30,7 +30,12 @@ Eigen::Quaternionf transFromQuatToQuat(Eigen::Quaternionf from, Eigen::Quaternio
 
 double quatTo2dYaw(const Eigen::Quaternionf quat)
 {
-    return atan2(quat.toRotationMatrix()(1, 2), quat.toRotationMatrix()(2, 2));
+    Eigen::Quaternionf quatC(quat);
+    quatC.x() = 0.0;
+    quatC.y() = 0.0;
+    quatC.normalize();
+
+    return 2*acos(quatC.w());
 }
 
 // This is NOT a regular euclidian distance. This function also accounts for the

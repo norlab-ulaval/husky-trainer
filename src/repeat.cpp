@@ -337,17 +337,13 @@ int main(int argc, char **argv)
             // Update the reference position
             geometry_msgs::Pose posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
 
-            if(count % 100 == 0)
+            if(closestAnchorIndex != anchorPoints.size() - 1 &&
+                    geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex].getPosition()) >
+                    geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex + 1].getPosition()))
             {
-                //ROS_INFO("T: %lf, X: %lf, Y: %lf", simTime.toSec(), posOfTime.position.x, posOfTime.position.y);
 
-                if(anchorPoints.size() > 0)
-                {
-                    closestAnchorIndex = closestAnchor(anchorPoints, posOfTime);
-                    ROS_INFO("Closest anchor: %d", closestAnchorIndex);
-                } else {
-                    ROS_INFO("No anchor point found.");
-                }
+                closestAnchorIndex++;
+                ROS_INFO("Swapping to anchor point number: %d", closestAnchorIndex);
             }
         }
 
