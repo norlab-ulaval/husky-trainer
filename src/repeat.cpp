@@ -26,7 +26,7 @@
 #include "husky_trainer/GeoUtil.h"
 #include "husky_trainer/AnchorPoint.h"
 #include "husky_trainer/PointMatching.h"
-#include "husky_trainer/MatchClouds.h"
+#include "pointmatcher_ros/MatchClouds.h"
 
 #define JOY_TOPIC "joy"
 #define CLOUD_TOPIC "/cloud"
@@ -256,7 +256,7 @@ void updateError(const sensor_msgs::PointCloud2& msg)
 
     sensor_msgs::PointCloud2 transformedMsg = applyTransform(msg, tFromReadingToAnchor*tFromLidarToBaseLink);
 
-    husky_trainer::MatchClouds pmMessage;
+    pointmatcher_ros::MatchClouds pmMessage;
     pmMessage.request.readings = transformedMsg;
     pmMessage.request.reference = referenceMsg;
 
@@ -303,7 +303,7 @@ int main(int argc, char **argv)
     ros::Subscriber cloud = n.subscribe(CLOUD_TOPIC, 100, cloudCallback);
     ros::Subscriber joystick = n.subscribe(JOY_TOPIC, 5000, joystickCallback);
     ros::Publisher cmd = n.advertise<geometry_msgs::Twist>(CMD_TOPIC,1000);
-    ros::ServiceClient pmClient = n.serviceClient<husky_trainer::MatchClouds>("match_clouds");
+    ros::ServiceClient pmClient = n.serviceClient<pointmatcher_ros::MatchClouds>("match_clouds");
     pPmService = &pmClient;
     tf::TransformListener tfListener;
 
