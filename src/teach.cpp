@@ -33,7 +33,7 @@
 
 
 #define JOYSTICK_TOPIC "joy"
-#define POINT_CLOUD_TOPIC "/cloud"
+#define POINT_CLOUD_TOPIC "/velodyne_points"
 #define POSE_ESTIMATE_TOPIC "/robot_pose_ekf/odom_combined"
 #define WHEEL_TRAVEL_TOPIC "/husky/data/encoders"
 #define VEL_TOPIC "/husky/cmd_vel"

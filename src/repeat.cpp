@@ -28,22 +28,28 @@
 #include "husky_trainer/PointMatching.h"
 #include "pointmatcher_ros/MatchClouds.h"
 
-#define JOY_TOPIC "joy"
-#define CLOUD_TOPIC "/cloud"
+#define JOY_TOPIC "/joy"
+#define CLOUD_TOPIC "/velodyne_points"
 #define CMD_TOPIC "/husky/cmd_vel"
 #define WORLD_FRAME "/odom"
 #define ROBOT_FRAME "/base_footprint"
 #define LIDAR_FRAME "/velodyne"
+#define CLOUD_MATHING_SERVICE "/match_clouds"
 
 #define POS_FILE_DELIMITER ','
-#define ICP_CONFIG_FILE "config.yaml"
 #define Y_BUTTON_INDEX 3
+#define DM_SWITCH_INDEX 4 // Deadman switch index on the gamepad.
 #define LOOP_RATE 100
 
+#define LAMBDA_X_PARAM "lx"
+#define LAMBDA_Y_PARAM "ly"
+#define LAMBDA_T_PARAM "lt"
+#define LOOKAHEAD_PARAM "lookahead"
+
 // TODO: Turn those next parameters into variables and interface them to be changed easily.
-#define DEFAULT_LAMBDA_X 0.6
-#define DEFAULT_LAMBDA_Y 2.0
-#define DEFAULT_LAMBDA_THETA 0.5
+#define DEFAULT_LAMBDA_X 0.0
+#define DEFAULT_LAMBDA_Y 0.0
+#define DEFAULT_LAMBDA_THETA 0.0
 #define DEFAULT_SPEED_LOOKAHEAD 0.2
 
 typedef PointMatcher<float> PM;
@@ -52,10 +58,12 @@ typedef PM::Parameters Parameters;
 
 // --- Node-global variables definition ---
 ros::Time repeatBeginTime;
-bool repeatBegan = false;
+ros::Time simTime;  // How far we are in the teach playback.
+ros::Time timeLastCommandWasRead; // How long have we been playing the last command.
+bool playbackIsOn = false;
 int closestAnchorIndex;
 std::vector<AnchorPoint> anchorPoints;
-ros::Time simTime;  // How far we are in the teach playback.
+
 PM::TransformationParameters tFromLidarToBaseLink;
 boost::mutex currentErrorMutex;
 ControlError currentError;
@@ -100,6 +108,12 @@ geometry_msgs::Pose positionOfTime(ros::Time time,
     while(begin != end && begin->get<0>() < time.toSec())
     {
         begin++;
+    }
+
+    if(begin == end)
+    {
+        ROS_INFO("Reached the end of the command feed.");
+        return (--begin)->get<1>();
     }
 
     return begin->get<1>();
@@ -223,13 +237,6 @@ geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist originalCommand, 
     float newAngular = originalCommand.angular.z - lambdaY * error.get<1>() - lambdaTheta * error.get<2>();
     float newLinear = originalCommand.linear.x * cos(error.get<1>()) - lambdaX * error.get<0>();
 
-    if(originalCommand.angular.z != 0.0 || originalCommand.linear.x != 0.0)
-    {
-        ROS_INFO("Corrections (angular, linear): %f, %f",
-                 (newAngular - originalCommand.angular.z),
-                 (newLinear - originalCommand.linear.x));
-    }
-
     originalCommand.angular.z = newAngular;
     originalCommand.linear.x = newLinear;
 
@@ -282,11 +289,16 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 
 void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 {
-    if(msg->buttons[Y_BUTTON_INDEX] == 1 && repeatBeginTime == ros::Time(0))
+    if(msg->buttons[DM_SWITCH_INDEX] == 1 && !playbackIsOn)
     {
-        repeatBeginTime = ros::Time::now();
-        repeatBegan = true;
         ROS_INFO("Starting playback.");
+        playbackIsOn = true;
+        timeLastCommandWasRead = ros::Time::now();
+    }
+    else if(msg->buttons[DM_SWITCH_INDEX] == 0 && playbackIsOn)
+    {
+        ROS_INFO("Stopping playback.");
+        playbackIsOn = false;
     }
 }
 
@@ -295,22 +307,25 @@ int main(int argc, char **argv)
     int count = 0;
 
     ros::init(argc, argv, "husky_repeat");
-    ros::NodeHandle n;
+    ros::NodeHandle n("~");
     ros::Rate loop_rate(LOOP_RATE);
 
-    int nextCommand;
+    playbackIsOn = false;
+    simTime = ros::Time(0);
 
     ros::Subscriber cloud = n.subscribe(CLOUD_TOPIC, 100, cloudCallback);
     ros::Subscriber joystick = n.subscribe(JOY_TOPIC, 5000, joystickCallback);
     ros::Publisher cmd = n.advertise<geometry_msgs::Twist>(CMD_TOPIC,1000);
-    ros::ServiceClient pmClient = n.serviceClient<pointmatcher_ros::MatchClouds>("match_clouds");
+    ros::ServiceClient pmClient = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATHING_SERVICE);
     pPmService = &pmClient;
     tf::TransformListener tfListener;
 
-    n.param<double>("~lx", lambdaX, DEFAULT_LAMBDA_X);
-    n.param<double>("~ly", lambdaY, DEFAULT_LAMBDA_Y);
-    n.param<double>("~lt", lambdaTheta, DEFAULT_LAMBDA_THETA);
-    n.param<double>("~lookahead", lookahead, DEFAULT_SPEED_LOOKAHEAD);
+    n.param<double>(LAMBDA_X_PARAM, lambdaX, DEFAULT_LAMBDA_X);
+    n.param<double>(LAMBDA_Y_PARAM, lambdaY, DEFAULT_LAMBDA_Y);
+    n.param<double>(LAMBDA_T_PARAM, lambdaTheta, DEFAULT_LAMBDA_THETA);
+    n.param<double>(LOOKAHEAD_PARAM, lookahead, DEFAULT_SPEED_LOOKAHEAD);
+
+    ROS_INFO_STREAM("Lambda values: " << lambdaX << ", " << lambdaY << ", " << lambdaTheta << ".");
 
     positionList = loadPositions();
     positionBegin = positionList.begin();
@@ -319,7 +334,7 @@ int main(int argc, char **argv)
 
     std::vector< boost::tuple<double, geometry_msgs::Twist> > commandList = loadCommands();
     ROS_INFO("Loaded command feed.");
-    nextCommand = 0;
+    int nextCommand = 0;
 
     closestAnchorIndex = 0;
     anchorPoints = loadAnchorPoints();
@@ -332,30 +347,29 @@ int main(int argc, char **argv)
     tFromLidarToBaseLink  =
             PointMatcher_ros::transformListenerToEigenMatrix<float>(tfListener, ROBOT_FRAME,
                                                                     LIDAR_FRAME, ros::Time(0));
-    ros::Duration lookaheadAdjustedTime;
-    ros::Duration nextCommandTime;
+    ros::Duration lookaheadAdjustedDelta;  // The delta is how long we have been playing the last command.
+    ros::Time nextCommandTime;
 
     while(ros::ok() && nextCommand < commandList.size())
     {
-        if(repeatBegan)
+        if(playbackIsOn)
         {
-            lookaheadAdjustedTime.fromSec(lookahead);
-            lookaheadAdjustedTime += ros::Time::now() - repeatBeginTime;
+            lookaheadAdjustedDelta.fromSec(lookahead);
+            lookaheadAdjustedDelta += (ros::Time::now() - timeLastCommandWasRead);
 
             nextCommandTime.fromSec(commandList[nextCommand].get<0>());
 
-            if(lookaheadAdjustedTime > nextCommandTime)
+            if(lookaheadAdjustedDelta > (nextCommandTime - simTime))
             {
                 simTime.fromSec(commandList[nextCommand].get<0>());
                 cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
-                //cmd.publish(commandList[nextCommand++].get<1>());
             }
 
             // Update the reference position.
             geometry_msgs::Pose posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
 
             if(closestAnchorIndex != anchorPoints.size() - 1 &&
-                    geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex].getPosition()) >
+                    geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex].getPosition()) >=
                     geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex + 1].getPosition()))
             {
                 closestAnchorIndex++;
