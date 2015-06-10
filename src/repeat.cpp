@@ -261,17 +261,21 @@ void updateError(const sensor_msgs::PointCloud2& msg)
                 positionOfTime(simTime, positionBegin, positionEnd),
                 anchorPoints[closestAnchorIndex].getPosition());
 
+    ros::Time begin = ros::Time::now();
     sensor_msgs::PointCloud2 transformedMsg = applyTransform(msg, tFromReadingToAnchor*tFromLidarToBaseLink);
+    ROS_INFO("applyTransform: %lf", (ros::Time::now() - begin).toSec());
 
     pointmatcher_ros::MatchClouds pmMessage;
     pmMessage.request.readings = transformedMsg;
     pmMessage.request.reference = referenceMsg;
 
+    begin = ros::Time::now();
     if(pPmService->call(pmMessage))
     {
+        ROS_INFO("service call: %lf", (ros::Time::now() - begin).toSec());
         ControlError newError = controlErrorOfTransformation(pmMessage.response.transform);
 
-        while(currentErrorMutex.try_lock()) {}
+        currentErrorMutex.lock();
         currentError = newError;
         currentErrorMutex.unlock();
         ROS_INFO("Error. X: %f, Y: %f, Theta: %f", newError.get<0>(), newError.get<1>(), newError.get<2>());

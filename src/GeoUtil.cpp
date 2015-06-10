@@ -35,7 +35,7 @@ double quatTo2dYaw(const Eigen::Quaternionf quat)
     quatC.y() = 0.0;
     quatC.normalize();
 
-    return 2*acos(quatC.w());
+    return quatC.z() * quatC.w() >= 0 ? 2*acos(quatC.w()) : -2*acos(quatC.w());
 }
 
 // This is NOT a regular euclidian distance. This function also accounts for the
