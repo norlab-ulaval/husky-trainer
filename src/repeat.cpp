@@ -29,7 +29,6 @@
 #include "pointmatcher_ros/MatchClouds.h"
 
 #define JOY_TOPIC "/joy"
-#define CLOUD_TOPIC "/velodyne_points"
 #define CMD_TOPIC "/husky/cmd_vel"
 #define WORLD_FRAME "/odom"
 #define ROBOT_FRAME "/base_footprint"
@@ -45,12 +44,14 @@
 #define LAMBDA_Y_PARAM "ly"
 #define LAMBDA_T_PARAM "lt"
 #define LOOKAHEAD_PARAM "lookahead"
+#define SOURCE_PARAM "source"
 
 // TODO: Turn those next parameters into variables and interface them to be changed easily.
 #define DEFAULT_LAMBDA_X 0.0
 #define DEFAULT_LAMBDA_Y 0.0
 #define DEFAULT_LAMBDA_THETA 0.0
 #define DEFAULT_SPEED_LOOKAHEAD 0.2
+#define DEFAULT_SOURCE_PARAM "cloud"
 
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
@@ -63,6 +64,7 @@ ros::Time timeLastCommandWasRead; // How long have we been playing the last comm
 bool playbackIsOn = false;
 int closestAnchorIndex;
 std::vector<AnchorPoint> anchorPoints;
+std::string sourceTopic;
 
 PM::TransformationParameters tFromLidarToBaseLink;
 boost::mutex currentErrorMutex;
@@ -233,8 +235,8 @@ std::vector< AnchorPoint > loadAnchorPoints()
 }
 
 geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist originalCommand, ControlError error)
-{
-    float newAngular = originalCommand.angular.z - lambdaY * error.get<1>() - lambdaTheta * error.get<2>();
+{   
+    float newAngular = originalCommand.angular.z + lambdaY * error.get<1>() - lambdaTheta * error.get<2>();
     float newLinear = originalCommand.linear.x * cos(error.get<1>()) - lambdaX * error.get<0>();
 
     originalCommand.angular.z = newAngular;
@@ -317,17 +319,18 @@ int main(int argc, char **argv)
     playbackIsOn = false;
     simTime = ros::Time(0);
 
-    ros::Subscriber cloud = n.subscribe(CLOUD_TOPIC, 100, cloudCallback);
-    ros::Subscriber joystick = n.subscribe(JOY_TOPIC, 5000, joystickCallback);
-    ros::Publisher cmd = n.advertise<geometry_msgs::Twist>(CMD_TOPIC,1000);
-    ros::ServiceClient pmClient = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATHING_SERVICE);
-    pPmService = &pmClient;
-    tf::TransformListener tfListener;
-
     n.param<double>(LAMBDA_X_PARAM, lambdaX, DEFAULT_LAMBDA_X);
     n.param<double>(LAMBDA_Y_PARAM, lambdaY, DEFAULT_LAMBDA_Y);
     n.param<double>(LAMBDA_T_PARAM, lambdaTheta, DEFAULT_LAMBDA_THETA);
     n.param<double>(LOOKAHEAD_PARAM, lookahead, DEFAULT_SPEED_LOOKAHEAD);
+    n.param<std::string>(SOURCE_PARAM, sourceTopic, DEFAULT_SOURCE_PARAM);
+
+    ros::Subscriber cloud = n.subscribe(sourceTopic, 10, cloudCallback);
+    ros::Subscriber joystick = n.subscribe(JOY_TOPIC, 5000, joystickCallback);
+    ros::Publisher cmd = n.advertise<geometry_msgs::Twist>(CMD_TOPIC,1000);
+    ros::ServiceClient pmClient = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATHING_SERVICE, true);
+    pPmService = &pmClient;
+    tf::TransformListener tfListener;
 
     ROS_INFO_STREAM("Lambda values: " << lambdaX << ", " << lambdaY << ", " << lambdaTheta << ".");
 
@@ -354,18 +357,22 @@ int main(int argc, char **argv)
     ros::Duration lookaheadAdjustedDelta;  // The delta is how long we have been playing the last command.
     ros::Time nextCommandTime;
 
+    ros::Duration rosLookahead(lookahead);
+
     while(ros::ok() && nextCommand < commandList.size())
     {
         if(playbackIsOn)
         {
-            lookaheadAdjustedDelta.fromSec(lookahead);
-            lookaheadAdjustedDelta += (ros::Time::now() - timeLastCommandWasRead);
+            ros::Duration lookaheadAdjustedDelta = (ros::Time::now() - timeLastCommandWasRead) + rosLookahead;
 
             nextCommandTime.fromSec(commandList[nextCommand].get<0>());
 
+            // If we have been playing the last command as long as it was played during the teach,
+            // switch to the next command.
             if(lookaheadAdjustedDelta > (nextCommandTime - simTime))
             {
                 simTime.fromSec(commandList[nextCommand].get<0>());
+                timeLastCommandWasRead = ros::Time::now();
                 cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
             }
 

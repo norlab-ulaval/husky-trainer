@@ -44,7 +44,7 @@
 
 #define Y_BUTTON_INDEX 3
 
-#define ANCHOR_POINT_DISTANCE 0.01  // The approx distance we want between every anchor point.
+#define ANCHOR_POINT_DISTANCE 0.1  // The approx distance we want between every anchor point.
 #define LOOP_RATE 100
 #define L_SEP ","
 
