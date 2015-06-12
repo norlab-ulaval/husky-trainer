@@ -4,6 +4,7 @@
 #include <math.h>
 #include <cmath>
 #include <iostream>
+#include <unistd.h>
 
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_io.hpp>
@@ -31,8 +32,10 @@
 #include "husky_trainer/AnchorPoint.h"
 #include "husky_trainer/PointMatching.h"
 
+#define WORKING_DIRECTORY_PARAM "working_directory"
+#define DEFAULT_WORKING_DIRECTORY ""  // current working directory
 
-#define JOYSTICK_TOPIC "joy"
+#define JOYSTICK_TOPIC "/joy"
 #define POINT_CLOUD_TOPIC "/velodyne_points"
 #define POSE_ESTIMATE_TOPIC "/robot_pose_ekf/odom_combined"
 #define WHEEL_TRAVEL_TOPIC "/husky/data/encoders"
@@ -51,6 +54,7 @@
 typedef PointMatcher<float> PM;
 
 // Node global variables.
+std::string workingDirectory;
 std::ofstream* pPositionRecord;
 std::ofstream* pSpeedRecord;
 int nextCloudIndex;
@@ -174,7 +178,14 @@ void velocityCallback(const geometry_msgs::Twist::ConstPtr& msg)
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "husky_teach");
-    ros::NodeHandle n;
+    ros::NodeHandle n("~");
+
+    n.getParam(WORKING_DIRECTORY_PARAM, workingDirectory);
+
+    if(chdir(workingDirectory.c_str()) != 0)
+    {
+        ROS_WARN("Could not switch to demanded directory. Using CWD instead.");
+    };
 
     nextCloudIndex = 0;
     anchorPointList = std::vector<AnchorPoint>();

@@ -1,4 +1,9 @@
 <launch>
-    <node name="cloud_recorder" pkg="pointcloud_tools" type="cloud-recorder" args="_source:=/anchor_points" />
-    <node name="teach_node" pkg="husky_trainer" type="husky_teach_node" />
+    <node name="cloud_recorder" pkg="pointcloud_tools" type="cloud_recorder" cwd="node"> 
+      <param name="working_directory" type="str" value="$(env PWD)" />
+      <param name="source" type="str" value="/anchor_points" />
+    </node>
+    <node name="teach_node" pkg="husky_trainer" type="husky_teach_node" cwd="node">
+      <param name="working_directory" type="str" value="$(env PWD)" />
+    </node>
 </launch>
