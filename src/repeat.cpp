@@ -296,6 +296,19 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
     boost::thread thread(updateError, *msg);
 }
 
+geometry_msgs::Twist notMovingTwist()
+{
+    geometry_msgs::Twist retVal;
+    retVal.angular.x = 0.0;
+    retVal.angular.y = 0.0;
+    retVal.angular.z = 0.0;
+    retVal.linear.x = 0.0;
+    retVal.linear.y = 0.0;
+    retVal.linear.z = 0.0;
+
+    return retVal;
+}
+
 void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 {
     if(msg->buttons[DM_SWITCH_INDEX] == 1 && !playbackIsOn)
@@ -309,8 +322,7 @@ void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
         ROS_INFO("Stopping playback.");
         playbackIsOn = false;
 
-        geometry_msgs::Twist stopMoving; // It's init at 0 by default.
-        pCmd->publish(stopMoving);
+        pCmd->publish(notMovingTwist());
     }
 }
 
