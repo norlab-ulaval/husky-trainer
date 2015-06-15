@@ -1,7 +1,13 @@
 
 <launch>
+    <arg name="icp_config"/>
+    <include file="$(find velodyne_pointcloud)/launch/throttled_32e_points.launch" />
     <node name="cloud_matcher" pkg="pointmatcher_ros" type="matcher_service" >
       <param name="config" type="str" value="$(arg icp_config)" />
+    </node>
+    <node name="command_repeater" pkg="husky_trainer" type="command_repeater_node">
+        <param name="input" value="/teach_repeat/desired_command" />
+        <param name="output" value="/husky/cmd_vel" />
     </node>
     <node name="repeat_node" pkg="husky_trainer" type="husky_repeat_node" />
 </launch>

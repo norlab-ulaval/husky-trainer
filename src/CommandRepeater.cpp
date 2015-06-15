@@ -49,10 +49,9 @@ void CommandRepeater::publishTimerCallback(const ros::TimerEvent& msg)
 
 void CommandRepeater::publishCommand(const geometry_msgs::Twist command)
 {
-    if(ros::Time::now() - lastCommandReceiveTime > ros::Duration(DEFAULT_TIMEOUT))
+    //Don't emit if the desired speed is older than the timeout.
+    if(ros::Time::now() - lastCommandReceiveTime < ros::Duration(DEFAULT_TIMEOUT))
     {
-        outputCommandTopic.publish(idleTwistCommand());
-    } else {
         outputCommandTopic.publish(command);
     }
 }
