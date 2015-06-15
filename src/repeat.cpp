@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stdlib.h>
 #include <math.h>
+#include <unistd.h>
 
 #include <boost/thread.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -48,6 +49,7 @@
 #define LAMBDA_T_PARAM "lt"
 #define LOOKAHEAD_PARAM "lookahead"
 #define SOURCE_PARAM "source"
+#define WORKING_DIRECTORY_PARAM "working_directory"
 
 // TODO: Turn those next parameters into variables and interface them to be changed easily.
 #define DEFAULT_LAMBDA_X 0.0
@@ -317,6 +319,7 @@ void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 int main(int argc, char **argv)
 {
     int count = 0;
+    std::string workingDirectory;
 
     ros::init(argc, argv, "husky_repeat");
     ros::NodeHandle n("~");
@@ -330,6 +333,13 @@ int main(int argc, char **argv)
     n.param<double>(LAMBDA_T_PARAM, lambdaTheta, DEFAULT_LAMBDA_THETA);
     n.param<double>(LOOKAHEAD_PARAM, lookahead, DEFAULT_SPEED_LOOKAHEAD);
     n.param<std::string>(SOURCE_PARAM, sourceTopic, DEFAULT_SOURCE_PARAM);
+    n.param<std::string>(WORKING_DIRECTORY_PARAM, workingDirectory, "");
+
+    if(chdir(workingDirectory.c_str()) != 0)
+    {
+        ROS_WARN("Could not switch to demanded directory. Using CWD instead.");
+    };
+
 
     ros::Subscriber cloud = n.subscribe(sourceTopic, 10, cloudCallback);
     ros::Subscriber joystick = n.subscribe(JOY_TOPIC, 5000, joystickCallback);
