@@ -59,6 +59,7 @@ include/husky_trainer/GeoUtil.h
 src/GeoUtil.cpp
 src/PointMatching.cpp
 src/AnchorPoint.cpp
+src/CommandRepeater.cpp
 src/repeat.cpp)
 
 add_executable(
