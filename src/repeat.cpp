@@ -29,16 +29,16 @@
 #include "pointmatcher_ros/MatchClouds.h"
 
 #define JOY_TOPIC "/joy"
-#define CMD_TOPIC "/husky/cmd_vel"
+#define CMD_TOPIC "/teach_repeat/desired_command"
 #define WORLD_FRAME "/odom"
 #define ROBOT_FRAME "/base_footprint"
 #define LIDAR_FRAME "/velodyne"
-#define CLOUD_MATHING_SERVICE "/match_clouds"
+#define CLOUD_MATCHING_SERVICE "/match_clouds"
 
 #define POS_FILE_DELIMITER ','
 #define Y_BUTTON_INDEX 3
 #define DM_SWITCH_INDEX 5 // Deadman switch index on the gamepad. It has to be a different button
-                          // that the usual deadman switch, so that the joy stick does not send
+                          // than the usual deadman switch, so that the joy stick does not send
                           // "don't" move commands on top of the repeat commands.
 #define LOOP_RATE 100
 
@@ -72,6 +72,7 @@ PM::TransformationParameters tFromLidarToBaseLink;
 boost::mutex currentErrorMutex;
 ControlError currentError;
 ros::ServiceClient* pPmService;
+ros::Publisher* pCmd;
 std::vector< boost::tuple<double, geometry_msgs::Pose> > positionList;
 std::vector< boost::tuple<double, geometry_msgs::Pose> >::iterator positionBegin;
 std::vector< boost::tuple<double, geometry_msgs::Pose> >::iterator positionEnd;
@@ -307,6 +308,9 @@ void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
     {
         ROS_INFO("Stopping playback.");
         playbackIsOn = false;
+
+        geometry_msgs::Twist stopMoving; // It's init at 0 by default.
+        pCmd->publish(stopMoving);
     }
 }
 
@@ -330,7 +334,8 @@ int main(int argc, char **argv)
     ros::Subscriber cloud = n.subscribe(sourceTopic, 10, cloudCallback);
     ros::Subscriber joystick = n.subscribe(JOY_TOPIC, 5000, joystickCallback);
     ros::Publisher cmd = n.advertise<geometry_msgs::Twist>(CMD_TOPIC,1000);
-    ros::ServiceClient pmClient = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATHING_SERVICE, true);
+    pCmd = &cmd;
+    ros::ServiceClient pmClient = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATCHING_SERVICE, true);
     pPmService = &pmClient;
     tf::TransformListener tfListener;
 
@@ -363,9 +368,8 @@ int main(int argc, char **argv)
     {
         if(playbackIsOn)
         {
-            ros::Duration delta = (ros::Time::now() - timeLastCommandWasRead);
-
             nextCommandTime.fromSec(commandList[nextCommand].get<0>());
+            ros::Duration delta = (ros::Time::now() - timeLastCommandWasRead);
 
             // If we have been playing the last command as long as it was played during the teach,
             // switch to the next command.

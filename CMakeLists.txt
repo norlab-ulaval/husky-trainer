@@ -61,8 +61,16 @@ src/PointMatching.cpp
 src/AnchorPoint.cpp
 src/repeat.cpp)
 
+add_executable(
+command_repeater_node
+include/husky_trainer/CommandRepeater.h
+src/CommandRepeater.cpp
+src/command_repeater_main.cpp
+)
+
 target_link_libraries(husky_teach_node ${catkin_LIBRARIES} pointmatcher)
 target_link_libraries(husky_repeat_node ${catkin_LIBRARIES} pointmatcher)
+target_link_libraries(command_repeater_node ${catkin_LIBRARIES})
 
 
 catkin_add_gtest(
