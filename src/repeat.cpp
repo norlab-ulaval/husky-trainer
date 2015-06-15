@@ -37,7 +37,9 @@
 
 #define POS_FILE_DELIMITER ','
 #define Y_BUTTON_INDEX 3
-#define DM_SWITCH_INDEX 4 // Deadman switch index on the gamepad.
+#define DM_SWITCH_INDEX 5 // Deadman switch index on the gamepad. It has to be a different button
+                          // that the usual deadman switch, so that the joy stick does not send
+                          // "don't" move commands on top of the repeat commands.
 #define LOOP_RATE 100
 
 #define LAMBDA_X_PARAM "lx"
@@ -51,7 +53,7 @@
 #define DEFAULT_LAMBDA_Y 0.0
 #define DEFAULT_LAMBDA_THETA 0.0
 #define DEFAULT_SPEED_LOOKAHEAD 0.2
-#define DEFAULT_SOURCE_PARAM "cloud"
+#define DEFAULT_SOURCE_PARAM "/cloud"
 
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
@@ -354,30 +356,30 @@ int main(int argc, char **argv)
     tFromLidarToBaseLink  =
             PointMatcher_ros::transformListenerToEigenMatrix<float>(tfListener, ROBOT_FRAME,
                                                                     LIDAR_FRAME, ros::Time(0));
-    ros::Duration lookaheadAdjustedDelta;  // The delta is how long we have been playing the last command.
     ros::Time nextCommandTime;
-
-    ros::Duration rosLookahead(lookahead);
+    geometry_msgs::Pose posOfTime;
 
     while(ros::ok() && nextCommand < commandList.size())
     {
         if(playbackIsOn)
         {
-            ros::Duration lookaheadAdjustedDelta = (ros::Time::now() - timeLastCommandWasRead) + rosLookahead;
+            ros::Duration delta = (ros::Time::now() - timeLastCommandWasRead);
 
             nextCommandTime.fromSec(commandList[nextCommand].get<0>());
 
             // If we have been playing the last command as long as it was played during the teach,
             // switch to the next command.
-            if(lookaheadAdjustedDelta > (nextCommandTime - simTime))
+            if(delta > (nextCommandTime - simTime))
             {
                 simTime.fromSec(commandList[nextCommand].get<0>());
                 timeLastCommandWasRead = ros::Time::now();
                 cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
-            }
 
-            // Update the reference position.
-            geometry_msgs::Pose posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
+                // Update the reference position.
+                posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
+            } else {
+                cmd.publish( errorAdjustedCommand(commandList[nextCommand].get<1>(), currentError));
+            }
 
             if(closestAnchorIndex != anchorPoints.size() - 1 &&
                     geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex].getPosition()) >=
