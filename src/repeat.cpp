@@ -64,16 +64,17 @@
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
 typedef PM::Parameters Parameters;
+enum OperationMode { PLAY, PAUSE, EMERGENCY };
 
 // --- Node-global variables definition ---
 ros::Time repeatBeginTime;
 ros::Time simTime;  // How far we are in the teach playback.
 ros::Time timeLastCommandWasRead; // How long have we been playing the last command.
 geometry_msgs::Pose rabbitPosition; // The position of the virtual rabbit we are following.
-bool playbackIsOn = false;
 int closestAnchorIndex;
 std::vector<AnchorPoint> anchorPoints;
 std::string sourceTopic;
+OperationMode currentMode;
 
 PM::TransformationParameters tFromLidarToBaseLink;
 boost::mutex currentErrorMutex;
@@ -303,7 +304,9 @@ void updateError(const sensor_msgs::PointCloud2& msg)
     }
     else
     {
-        ROS_WARN("There was a problem with the point matching service.");
+        ROS_WARN("There was a problem with the point matching service. Switching to emergency mode");
+        currentMode = EMERGENCY;
+        pCmd->publish(CommandRepeater::idleTwistCommand());
     }
 }
 
@@ -314,17 +317,16 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 
 void joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 {
-    if(msg->buttons[DM_SWITCH_INDEX] == 1 && !playbackIsOn)
+    if(msg->buttons[DM_SWITCH_INDEX] == 1 && currentMode == PAUSE)
     {
         ROS_INFO("Starting playback.");
-        playbackIsOn = true;
+        currentMode = PLAY;
         timeLastCommandWasRead = ros::Time::now();
     }
-    else if(msg->buttons[DM_SWITCH_INDEX] == 0 && playbackIsOn)
+    else if(msg->buttons[DM_SWITCH_INDEX] == 0 && (currentMode == PLAY || currentMode == EMERGENCY))
     {
         ROS_INFO("Stopping playback.");
-        playbackIsOn = false;
-
+        currentMode = PAUSE;
         pCmd->publish(CommandRepeater::idleTwistCommand());
     }
 }
@@ -338,7 +340,7 @@ int main(int argc, char **argv)
     ros::NodeHandle n("~");
     ros::Rate loop_rate(LOOP_RATE);
 
-    playbackIsOn = false;
+    currentMode = PAUSE;
     simTime = ros::Time(0);
 
     double lookaheadDouble;
@@ -394,7 +396,7 @@ int main(int argc, char **argv)
 
     while(ros::ok() && nextCommand < commandList.size())
     {
-        if(playbackIsOn)
+        if(currentMode == PLAY)
         {
             nextCommandTime.fromSec(commandList[nextCommand].get<0>());
             ros::Duration delta = (ros::Time::now() - timeLastCommandWasRead);
