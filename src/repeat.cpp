@@ -55,7 +55,7 @@
 #define DEFAULT_LAMBDA_X 0.0
 #define DEFAULT_LAMBDA_Y 0.0
 #define DEFAULT_LAMBDA_THETA 0.0
-#define DEFAULT_SPEED_LOOKAHEAD 0.2
+#define DEFAULT_LOOKAHEAD 0.2
 #define DEFAULT_SOURCE_PARAM "/cloud"
 
 typedef PointMatcher<float> PM;
@@ -66,6 +66,7 @@ typedef PM::Parameters Parameters;
 ros::Time repeatBeginTime;
 ros::Time simTime;  // How far we are in the teach playback.
 ros::Time timeLastCommandWasRead; // How long have we been playing the last command.
+geometry_msgs::Pose rabbitPosition; // The position of the virtual rabbit we are following.
 bool playbackIsOn = false;
 int closestAnchorIndex;
 std::vector<AnchorPoint> anchorPoints;
@@ -83,7 +84,7 @@ std::vector< boost::tuple<double, geometry_msgs::Pose> >::iterator positionEnd;
 double lambdaX;
 double lambdaY;
 double lambdaTheta;
-double lookahead;
+ros::Duration lookahead;
 
 int closestAnchor(const std::vector<AnchorPoint>& anchorPointList,
                   const geometry_msgs::Pose position)
@@ -266,7 +267,7 @@ void updateError(const sensor_msgs::PointCloud2& msg)
     // Compute the difference between the anchor point and the actual pose and turn it into a
     // transformation matrix.
     PM::TransformationParameters tFromReadingToAnchor = geo_util::transFromPoseToPose(
-                positionOfTime(simTime, positionBegin, positionEnd),
+                rabbitPosition,
                 anchorPoints[closestAnchorIndex].getPosition());
 
     ros::Time begin = ros::Time::now();
@@ -328,12 +329,16 @@ int main(int argc, char **argv)
     playbackIsOn = false;
     simTime = ros::Time(0);
 
+    double lookaheadDouble;
+
     n.param<double>(LAMBDA_X_PARAM, lambdaX, DEFAULT_LAMBDA_X);
     n.param<double>(LAMBDA_Y_PARAM, lambdaY, DEFAULT_LAMBDA_Y);
     n.param<double>(LAMBDA_T_PARAM, lambdaTheta, DEFAULT_LAMBDA_THETA);
-    n.param<double>(LOOKAHEAD_PARAM, lookahead, DEFAULT_SPEED_LOOKAHEAD);
+    n.param<double>(LOOKAHEAD_PARAM, lookaheadDouble, DEFAULT_LOOKAHEAD);
     n.param<std::string>(SOURCE_PARAM, sourceTopic, DEFAULT_SOURCE_PARAM);
     n.param<std::string>(WORKING_DIRECTORY_PARAM, workingDirectory, "");
+
+    lookahead.fromSec(lookaheadDouble);
 
     if(chdir(workingDirectory.c_str()) != 0)
     {
@@ -365,6 +370,7 @@ int main(int argc, char **argv)
     ROS_INFO("Loaded anchor points");
 
     currentError = ControlError(0.0,0.0,0.0);
+    rabbitPosition = positionList[0].get<1>();
 
     // Fetch and store the transformation from the lidar to the base_link, we'll need it when
     // comparing the points clouds.
@@ -372,7 +378,6 @@ int main(int argc, char **argv)
             PointMatcher_ros::transformListenerToEigenMatrix<float>(tfListener, ROBOT_FRAME,
                                                                     LIDAR_FRAME, ros::Time(0));
     ros::Time nextCommandTime;
-    geometry_msgs::Pose posOfTime;
 
     while(ros::ok() && nextCommand < commandList.size())
     {
@@ -390,14 +395,14 @@ int main(int argc, char **argv)
                 cmd.publish( errorAdjustedCommand( commandList[nextCommand++].get<1>(), currentError) );
 
                 // Update the reference position.
-                posOfTime = positionOfTime(simTime, positionBegin, positionEnd);
+                rabbitPosition= positionOfTime(simTime + lookahead, positionBegin, positionEnd);
             } else {
                 cmd.publish( errorAdjustedCommand(commandList[nextCommand].get<1>(), currentError));
             }
 
             if(closestAnchorIndex != anchorPoints.size() - 1 &&
-                    geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex].getPosition()) >=
-                    geo_util::customDistance(posOfTime, anchorPoints[closestAnchorIndex + 1].getPosition()))
+                    geo_util::customDistance(rabbitPosition, anchorPoints[closestAnchorIndex].getPosition()) >=
+                    geo_util::customDistance(rabbitPosition, anchorPoints[closestAnchorIndex + 1].getPosition()))
             {
                 closestAnchorIndex++;
                 ROS_INFO("Swapping to anchor point number: %d", closestAnchorIndex);
