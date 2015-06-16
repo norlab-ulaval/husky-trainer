@@ -48,7 +48,7 @@
 #define LAMBDA_Y_PARAM "ly"
 #define LAMBDA_T_PARAM "lt"
 #define LOOKAHEAD_PARAM "lookahead"
-#define SOURCE_PARAM "source"
+#define SOURCE_PARAM "readings_topic"
 #define WORKING_DIRECTORY_PARAM "working_directory"
 
 // TODO: Turn those next parameters into variables and interface them to be changed easily.

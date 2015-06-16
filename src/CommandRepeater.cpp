@@ -7,9 +7,13 @@ CommandRepeater::CommandRepeater(ros::NodeHandle n) :
     desiredCommand()
 {
     std::string desiredCommandTopicName, outputTopicName;
+    double timeoutDouble;
 
     n.param<std::string>(INPUT_TOPIC_PARAM, desiredCommandTopicName, DEFAULT_INPUT_TOPIC);
     n.param<std::string>(OUTPUT_TOPIC_PARAM, outputTopicName, DEFAULT_OUTPUT_TOPIC);
+    n.param<double>(TIMEOUT_PARAM, timeoutDouble, DEFAULT_TIMEOUT);
+
+    timeout = ros::Duration(timeoutDouble);
 
     publishTimer = n.createTimer(ros::Duration(1.0/COMMAND_RATE), &CommandRepeater::publishTimerCallback, this);
     desiredCommandTopic = n.subscribe(desiredCommandTopicName, 10000, &CommandRepeater::updateDesiredCommand, this);
@@ -50,7 +54,7 @@ void CommandRepeater::publishTimerCallback(const ros::TimerEvent& msg)
 void CommandRepeater::publishCommand(const geometry_msgs::Twist command)
 {
     //Don't emit if the desired speed is older than the timeout.
-    if(ros::Time::now() - lastCommandReceiveTime < ros::Duration(DEFAULT_TIMEOUT))
+    if(ros::Time::now() - lastCommandReceiveTime < timeout)
     {
         outputCommandTopic.publish(command);
     }

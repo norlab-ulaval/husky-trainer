@@ -25,7 +25,7 @@ private:
     ros::Publisher outputCommandTopic;
     ros::Timer publishTimer;
     ros::Time lastCommandReceiveTime;
-    ros::Duration timeout;  // Set the published command to 0 if we don't receive any update for that duration.
+    ros::Duration timeout;
 
     void publishTimerCallback(const ros::TimerEvent&);
     void updateDesiredCommand(const geometry_msgs::Twist::ConstPtr& msg);
