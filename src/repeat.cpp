@@ -14,6 +14,7 @@
 #include <boost/thread/mutex.hpp>
 
 #include <ros/ros.h>
+#include <ros/service.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -50,6 +51,7 @@
 #define LOOKAHEAD_PARAM "lookahead"
 #define SOURCE_PARAM "readings_topic"
 #define WORKING_DIRECTORY_PARAM "working_directory"
+#define ICP_TIMEOUT_PARAM "icp_timeout"
 
 // TODO: Turn those next parameters into variables and interface them to be changed easily.
 #define DEFAULT_LAMBDA_X 0.0
@@ -57,6 +59,7 @@
 #define DEFAULT_LAMBDA_THETA 0.0
 #define DEFAULT_LOOKAHEAD 0.2
 #define DEFAULT_SOURCE_PARAM "/cloud"
+#define DEFAULT_ICP_TIMEOUT 0.1
 
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
@@ -85,6 +88,7 @@ double lambdaX;
 double lambdaY;
 double lambdaTheta;
 ros::Duration lookahead;
+double icpTimeout;
 
 int closestAnchor(const std::vector<AnchorPoint>& anchorPointList,
                   const geometry_msgs::Pose position)
@@ -279,6 +283,14 @@ void updateError(const sensor_msgs::PointCloud2& msg)
     pmMessage.request.reference = referenceMsg;
 
     begin = ros::Time::now();
+
+    // Abort if the service is busy.
+    if(!ros::service::waitForService(CLOUD_MATCHING_SERVICE, ros::Duration(icpTimeout)))
+    {
+        ROS_WARN("Service is busy. Dropping a point cloud.");
+        return;
+    }
+
     if(pPmService->call(pmMessage))
     {
         ROS_INFO("service call: %lf", (ros::Time::now() - begin).toSec());
@@ -335,6 +347,7 @@ int main(int argc, char **argv)
     n.param<double>(LAMBDA_Y_PARAM, lambdaY, DEFAULT_LAMBDA_Y);
     n.param<double>(LAMBDA_T_PARAM, lambdaTheta, DEFAULT_LAMBDA_THETA);
     n.param<double>(LOOKAHEAD_PARAM, lookaheadDouble, DEFAULT_LOOKAHEAD);
+    n.param<double>(ICP_TIMEOUT_PARAM, icpTimeout, DEFAULT_ICP_TIMEOUT);
     n.param<std::string>(SOURCE_PARAM, sourceTopic, DEFAULT_SOURCE_PARAM);
     n.param<std::string>(WORKING_DIRECTORY_PARAM, workingDirectory, "");
 
