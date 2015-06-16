@@ -59,7 +59,7 @@
 #define DEFAULT_LAMBDA_THETA 0.0
 #define DEFAULT_LOOKAHEAD 0.2
 #define DEFAULT_SOURCE_PARAM "/cloud"
-#define DEFAULT_ICP_TIMEOUT 0.1
+#define DEFAULT_ICP_TIMEOUT 0.5
 
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
@@ -89,7 +89,7 @@ double lambdaX;
 double lambdaY;
 double lambdaTheta;
 ros::Duration lookahead;
-double icpTimeout;
+ros::Duration icpTimeout;
 
 int closestAnchor(const std::vector<AnchorPoint>& anchorPointList,
                   const geometry_msgs::Pose position)
@@ -284,14 +284,6 @@ void updateError(const sensor_msgs::PointCloud2& msg)
     pmMessage.request.reference = referenceMsg;
 
     begin = ros::Time::now();
-
-    // Abort if the service is busy.
-    if(!ros::service::waitForService(CLOUD_MATCHING_SERVICE, ros::Duration(icpTimeout)))
-    {
-        ROS_WARN("Service is busy. Dropping a point cloud.");
-        return;
-    }
-
     if(pPmService->call(pmMessage))
     {
         ROS_INFO("service call: %lf", (ros::Time::now() - begin).toSec());
@@ -301,6 +293,13 @@ void updateError(const sensor_msgs::PointCloud2& msg)
         currentError = newError;
         currentErrorMutex.unlock();
         ROS_INFO("Error. X: %f, Y: %f, Theta: %f", newError.get<0>(), newError.get<1>(), newError.get<2>());
+
+        // This warning is meant to try to detect when the calls are not made realtime by the icp
+        // service anymore. TODO: find a better way to detect the service is not quick ennough.
+        if((ros::Time::now() - begin).toSec() > icpTimeout.toSec())
+        {
+            ROS_WARN("ICP service call took longer than icp_timeout.");
+        }
     }
     else
     {
@@ -344,16 +343,18 @@ int main(int argc, char **argv)
     simTime = ros::Time(0);
 
     double lookaheadDouble;
+    double icpTimeoutDouble;
 
     n.param<double>(LAMBDA_X_PARAM, lambdaX, DEFAULT_LAMBDA_X);
     n.param<double>(LAMBDA_Y_PARAM, lambdaY, DEFAULT_LAMBDA_Y);
     n.param<double>(LAMBDA_T_PARAM, lambdaTheta, DEFAULT_LAMBDA_THETA);
     n.param<double>(LOOKAHEAD_PARAM, lookaheadDouble, DEFAULT_LOOKAHEAD);
-    n.param<double>(ICP_TIMEOUT_PARAM, icpTimeout, DEFAULT_ICP_TIMEOUT);
+    n.param<double>(ICP_TIMEOUT_PARAM, icpTimeoutDouble, DEFAULT_ICP_TIMEOUT);
     n.param<std::string>(SOURCE_PARAM, sourceTopic, DEFAULT_SOURCE_PARAM);
     n.param<std::string>(WORKING_DIRECTORY_PARAM, workingDirectory, "");
 
     lookahead.fromSec(lookaheadDouble);
+    icpTimeout.fromSec(icpTimeoutDouble);
 
     if(chdir(workingDirectory.c_str()) != 0)
     {
@@ -370,6 +371,7 @@ int main(int argc, char **argv)
     tf::TransformListener tfListener;
 
     ROS_INFO_STREAM("Lambda values: " << lambdaX << ", " << lambdaY << ", " << lambdaTheta << ".");
+    ROS_INFO_STREAM("Lookahead: " << lookaheadDouble);
 
     positionList = loadPositions();
     positionBegin = positionList.begin();

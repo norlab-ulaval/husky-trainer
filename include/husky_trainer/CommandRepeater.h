@@ -18,6 +18,8 @@ public:
     CommandRepeater(ros::NodeHandle n);
     void spin();
     static geometry_msgs::Twist idleTwistCommand();
+    inline static bool isIdleTwistCommand(geometry_msgs::Twist command);
+    inline static bool isNullVector(geometry_msgs::Vector3 vector);
 
 private:
     geometry_msgs::Twist desiredCommand;

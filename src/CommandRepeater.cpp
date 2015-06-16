@@ -54,8 +54,18 @@ void CommandRepeater::publishTimerCallback(const ros::TimerEvent& msg)
 void CommandRepeater::publishCommand(const geometry_msgs::Twist command)
 {
     //Don't emit if the desired speed is older than the timeout.
-    if(ros::Time::now() - lastCommandReceiveTime < timeout)
+    if(ros::Time::now() - lastCommandReceiveTime < timeout && !isIdleTwistCommand(command))
     {
         outputCommandTopic.publish(command);
     }
+}
+
+bool CommandRepeater::isIdleTwistCommand(geometry_msgs::Twist command)
+{
+    return isNullVector(command.linear) && isNullVector(command.angular);
+}
+
+bool CommandRepeater::isNullVector(geometry_msgs::Vector3 vector)
+{
+    return vector.x == 0 && vector.y == 0 && vector.z == 0;
 }
