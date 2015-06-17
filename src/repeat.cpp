@@ -78,7 +78,7 @@ OperationMode currentMode;
 
 PM::TransformationParameters tFromLidarToBaseLink;
 boost::mutex currentErrorMutex;
-ControlError currentError;
+pointmatching_tools::ControlError currentError;
 ros::ServiceClient* pPmService;
 ros::Publisher* pCmd;
 std::vector< boost::tuple<double, geometry_msgs::Pose> > positionList;
@@ -246,7 +246,7 @@ std::vector< AnchorPoint > loadAnchorPoints()
     return retVal;
 }
 
-geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist originalCommand, ControlError error)
+geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist originalCommand, pointmatching_tools::ControlError error)
 {   
     float newAngular = originalCommand.angular.z + lambdaY * error.get<1>() - lambdaTheta * error.get<2>();
     float newLinear = originalCommand.linear.x * cos(error.get<1>()) - lambdaX * error.get<0>();
@@ -276,7 +276,7 @@ void updateError(const sensor_msgs::PointCloud2& msg)
                 anchorPoints[closestAnchorIndex].getPosition());
 
     ros::Time begin = ros::Time::now();
-    sensor_msgs::PointCloud2 transformedMsg = applyTransform(msg, tFromReadingToAnchor*tFromLidarToBaseLink);
+    sensor_msgs::PointCloud2 transformedMsg = pointmatching_tools::applyTransform(msg, tFromReadingToAnchor*tFromLidarToBaseLink);
     ROS_INFO("applyTransform: %lf", (ros::Time::now() - begin).toSec());
 
     pointmatcher_ros::MatchClouds pmMessage;
@@ -287,7 +287,7 @@ void updateError(const sensor_msgs::PointCloud2& msg)
     if(pPmService->call(pmMessage))
     {
         ROS_INFO("service call: %lf", (ros::Time::now() - begin).toSec());
-        ControlError newError = controlErrorOfTransformation(pmMessage.response.transform);
+        pointmatching_tools::ControlError newError = pointmatching_tools::controlErrorOfTransformation(pmMessage.response.transform);
 
         currentErrorMutex.lock();
         currentError = newError;
@@ -386,7 +386,7 @@ int main(int argc, char **argv)
     anchorPoints = loadAnchorPoints();
     ROS_INFO("Loaded anchor points");
 
-    currentError = ControlError(0.0,0.0,0.0);
+    currentError = pointmatching_tools::ControlError(0.0,0.0,0.0);
     rabbitPosition = positionList[0].get<1>();
 
     // Fetch and store the transformation from the lidar to the base_link, we'll need it when

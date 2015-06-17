@@ -15,6 +15,9 @@
 
 #include "husky_trainer/GeoUtil.h"
 
+namespace pointmatching_tools
+{
+
 // The errors are as following: e_x, e_y, e_theta.
 typedef boost::tuple<float,float,float> ControlError;
 
@@ -24,5 +27,5 @@ bool validateTransformation(PointMatcher<float>::TransformationParameters t);
 ControlError controlErrorOfTransformation(geometry_msgs::Transform transformation);
 sensor_msgs::PointCloud2 applyTransform(const sensor_msgs::PointCloud2 &cloud,
                                         PointMatcher<float>::TransformationParameters transform);
-
+}
 #endif

@@ -63,14 +63,27 @@ src/CommandRepeater.cpp
 src/repeat.cpp)
 
 add_executable(
+repeat
+include/husky_trainer/Repeat.h
+src/CommandRepeater.cpp
+src/GeoUtil.cpp
+src/PointMatching.cpp
+src/AnchorPoint.cpp
+src/Repeat.cpp
+src/repeat_main.cpp
+)
+
+add_executable(
 command_repeater_node
 include/husky_trainer/CommandRepeater.h
+include/husky_trainer/ControllerMappings.h
 src/CommandRepeater.cpp
 src/command_repeater_main.cpp
 )
 
 target_link_libraries(husky_teach_node ${catkin_LIBRARIES} pointmatcher)
 target_link_libraries(husky_repeat_node ${catkin_LIBRARIES} pointmatcher)
+target_link_libraries(repeat ${catkin_LIBRARIES})
 target_link_libraries(command_repeater_node ${catkin_LIBRARIES})
 
 

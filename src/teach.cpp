@@ -89,7 +89,7 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
     PM::DataPoints dataPoints;
     dataPoints = PointMatcher_ros::rosMsgToPointMatcherCloud<float>(msg);
 
-    PM::DataPoints transformedCloud = applyTransform(dataPoints, tLidarToBaseLink);
+    PM::DataPoints transformedCloud = pointmatching_tools::applyTransform(dataPoints, tLidarToBaseLink);
 
     sensor_msgs::PointCloud2 transformedMsg =
             PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedCloud, "base_link", ros::Time(0));

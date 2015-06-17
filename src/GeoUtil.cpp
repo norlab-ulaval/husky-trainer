@@ -117,4 +117,113 @@ geometry_msgs::Pose stringToPose(std::string input)
     return pose;
 }
 
+geometry_msgs::TwistStamped stampedTwistOfString(std::string in)
+{
+    std::stringstream ss(in);
+    std::string buffer;
+
+    std::getline(ss,buffer, ',');
+    double time = strtod(buffer.c_str(), NULL);
+
+    std::getline(ss,buffer, ',');
+    double linear = strtod(buffer.c_str(), NULL);
+
+    std::getline(ss,buffer, ',');
+    double angular = strtod(buffer.c_str(), NULL);
+
+    geometry_msgs::Vector3 linearSpeed;
+    linearSpeed.x = linear;
+    linearSpeed.y = 0.0;
+    linearSpeed.z = 0.0;
+
+    geometry_msgs::Vector3 angularSpeed;
+    angularSpeed.x = 0.0;
+    angularSpeed.y = 0.0;
+    angularSpeed.z = angular;
+
+    geometry_msgs::Twist command;
+    command.linear = linearSpeed;
+    command.angular = angularSpeed;
+
+    std_msgs::Header header;
+    header.stamp = ros::Time(time);
+
+    geometry_msgs::TwistStamped msg;
+    msg.twist = command;
+    msg.header = header;
+
+    return msg;
+}
+
+geometry_msgs::PoseStamped stampedPoseOfString(std::string in)
+{
+    std::string lineBuffer;
+
+    std::stringstream ss(in);
+    std::string timeString;
+    std::getline(ss, timeString, ',');
+    double time = strtod(timeString.c_str(), NULL);
+
+    std::getline(ss, lineBuffer);
+
+    geometry_msgs::Pose pose = stringToPose(lineBuffer);
+    std_msgs::Header header;
+    header.stamp = ros::Time(time);
+
+    geometry_msgs::PoseStamped retVal;
+    retVal.header = header;
+    retVal.pose = pose;
+
+    return retVal;
+}
+
+double linInterpolation(double x1, double y1, double x2, double y2, double t)
+{
+    double slope = (y2 - y1) / (x2 - x1);
+    return slope * (t - x1) + y1;
+}
+
+geometry_msgs::Pose linInterpolation(geometry_msgs::PoseStamped lhs, geometry_msgs::PoseStamped rhs, ros::Time time)
+{
+    double newW = geo_util::linInterpolation(lhs.header.stamp.toSec(), lhs.pose.orientation.w,
+                                             rhs.header.stamp.toSec(), rhs.pose.orientation.w,
+                                             time.toSec());
+    double newX = geo_util::linInterpolation(lhs.header.stamp.toSec(), lhs.pose.orientation.x,
+                                             rhs.header.stamp.toSec(), rhs.pose.orientation.x,
+                                             time.toSec());
+    double newY = geo_util::linInterpolation(lhs.header.stamp.toSec(), lhs.pose.orientation.y,
+                                             rhs.header.stamp.toSec(), rhs.pose.orientation.y,
+                                             time.toSec());
+    double newZ = geo_util::linInterpolation(lhs.header.stamp.toSec(), lhs.pose.orientation.z,
+                                             rhs.header.stamp.toSec(), rhs.pose.orientation.z,
+                                             time.toSec());
+
+    geometry_msgs::Quaternion newQuat;
+    newQuat.x = newX;
+    newQuat.y = newY;
+    newQuat.z = newZ;
+    newQuat.w = newW;
+
+    newX = geo_util::linInterpolation(lhs.header.stamp.toSec(), lhs.pose.position.x,
+                                      rhs.header.stamp.toSec(), rhs.pose.position.x,
+                                      time.toSec());
+    newY = geo_util::linInterpolation(lhs.header.stamp.toSec(), lhs.pose.position.y,
+                                      rhs.header.stamp.toSec(), rhs.pose.position.y,
+                                      time.toSec());
+    newZ = geo_util::linInterpolation(lhs.header.stamp.toSec(), lhs.pose.position.z,
+                                      rhs.header.stamp.toSec(), rhs.pose.position.z,
+                                      time.toSec());
+
+    geometry_msgs::Point newPos;
+    newPos.x = newX;
+    newPos.y = newY;
+    newPos.z = newZ;
+
+    geometry_msgs::Pose retVal;
+    retVal.orientation = newQuat;
+    retVal.position = newPos;
+
+    return retVal;
+}
+
 }

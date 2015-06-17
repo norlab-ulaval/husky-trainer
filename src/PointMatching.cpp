@@ -3,6 +3,10 @@
 
 #define WORLD_FRAME "/odom"
 
+namespace pointmatching_tools
+{
+
+
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
 typedef PM::Parameters Parameters;
@@ -48,4 +52,5 @@ DP applyTransform(DP cloud, PM::TransformationParameters transform)
     return cloud;
 }
 
+}
 

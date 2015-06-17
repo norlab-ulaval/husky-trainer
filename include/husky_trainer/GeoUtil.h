@@ -8,8 +8,9 @@
 
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
-#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/TwistStamped.h>
 
 #include "pointmatcher/PointMatcher.h"
 
@@ -26,7 +27,10 @@ std::string poseToString(geometry_msgs::Pose pose);
 geometry_msgs::Pose stringToPose(std::string);
 Eigen::Quaternionf rosQuatToEigenQuat(geometry_msgs::Quaternion rosQuat);
 Eigen::Vector3f vectorOfPoints(geometry_msgs::Point lhs, geometry_msgs::Point rhs);
-
+geometry_msgs::TwistStamped stampedTwistOfString(std::string in);
+geometry_msgs::PoseStamped stampedPoseOfString(std::string in);
+double linInterpolation(double x1, double y1, double x2, double y2, double t);
+geometry_msgs::Pose linInterpolation(geometry_msgs::PoseStamped lhs, geometry_msgs::PoseStamped rhs, ros::Time time);
 }
 
 
