@@ -124,12 +124,12 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
         if(icpService.call(pmMessage))
         {
             currentError = pointmatching_tools::controlErrorOfTransformation(pmMessage.response.transform);
-            serviceCallLock.unlock();
             ROS_INFO("Error. X: %f, Y: %f, Theta: %f", currentError.get<0>(), currentError.get<1>(), currentError.get<2>());
         } else {
             ROS_WARN("There was a problem with the point matching service.");
             switchToStatus(ERROR);
         }
+        serviceCallLock.unlock();
     } else {
         ROS_INFO("ICP service was busy, dropped a cloud.");
     }
@@ -171,7 +171,7 @@ geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
 {
     std::vector<geometry_msgs::TwistStamped>::iterator previousCursor = commandCursor;
 
-    while(commandCursor->header.stamp < time && commandCursor != commands.end())
+    while(commandCursor->header.stamp < time && commandCursor < commands.end() - 1)
     {
         previousCursor = commandCursor++;
     }
@@ -193,7 +193,7 @@ geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
 {
     std::vector<geometry_msgs::PoseStamped>::iterator previousCursor = positionCursor;
 
-    while(positionCursor->header.stamp < time && positionCursor != positions.end())
+    while(positionCursor->header.stamp < time && positionCursor < positions.end() - 1)
     {
         previousCursor = positionCursor++;
     }

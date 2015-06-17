@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(husky_trainer)
 
-# set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 find_package(catkin REQUIRED COMPONENTS 
     sensor_msgs 
