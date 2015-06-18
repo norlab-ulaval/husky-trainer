@@ -36,20 +36,17 @@ sensor_msgs::PointCloud2 applyTransform(const sensor_msgs::PointCloud2& cloud,
 
     DP datapointsOfMsg = PointMatcher_ros::rosMsgToPointMatcherCloud<float>(cloud);
 
-    DP transformedDataPoints = applyTransform(datapointsOfMsg, transform);
+    applyTransform(datapointsOfMsg, transform);
 
-    return PointMatcher_ros::pointMatcherCloudToRosMsg<float>(transformedDataPoints,
+    return PointMatcher_ros::pointMatcherCloudToRosMsg<float>(datapointsOfMsg,
                                                               WORLD_FRAME, ros::Time(0));
 }
 
-DP applyTransform(DP cloud, PM::TransformationParameters transform)
+void applyTransform(DP& cloud, PM::TransformationParameters transform)
 {
     PM::ICP icp;
     icp.setDefault();
-
     icp.transformations.apply(cloud, transform);
-
-    return cloud;
 }
 
 }

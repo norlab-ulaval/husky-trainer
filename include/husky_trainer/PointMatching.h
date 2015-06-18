@@ -21,8 +21,8 @@ namespace pointmatching_tools
 // The errors are as following: e_x, e_y, e_theta.
 typedef boost::tuple<float,float,float> ControlError;
 
-PointMatcher<float>::DataPoints applyTransform(PointMatcher<float>::DataPoints cloud,
-                                               PointMatcher<float>::TransformationParameters transform);
+void applyTransform(PointMatcher<float>::DataPoints& cloud,
+                    PointMatcher<float>::TransformationParameters transform);
 bool validateTransformation(PointMatcher<float>::TransformationParameters t);
 ControlError controlErrorOfTransformation(geometry_msgs::Transform transformation);
 sensor_msgs::PointCloud2 applyTransform(const sensor_msgs::PointCloud2 &cloud,

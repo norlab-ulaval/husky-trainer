@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
     geometry_msgs 
     roscpp
     pointmatcher_ros
+    pcl_ros
 )
 
 find_package(Eigen REQUIRED)

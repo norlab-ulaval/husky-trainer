@@ -4,6 +4,8 @@
 #include <vector>
 #include <boost/iterator.hpp>
 
+#include <pcl_ros/point_cloud.h>
+
 #include "husky_trainer/Repeat.h"
 #include "husky_trainer/ControllerMappings.h"
 
@@ -220,7 +222,7 @@ ros::Time Repeat::simTime()
 
 void Repeat::switchToStatus(Status desiredStatus)
 {
-    if(desiredStatus == ERROR)
+    if(desiredStatus == ERROR && currentStatus != ERROR)
     {
         ROS_WARN("Switching to emergency mode.");
         pausePlayback();
