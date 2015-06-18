@@ -70,7 +70,7 @@ Repeat::Repeat(ros::NodeHandle n) :
     readingTopic = n.subscribe(sourceTopicName, 10, &Repeat::cloudCallback, this);
     joystickTopic = n.subscribe(JOY_TOPIC, 1000, &Repeat::joystickCallback, this);
     commandRepeaterTopic = n.advertise<geometry_msgs::Twist>(DEFAULT_COMMAND_OUTPUT_TOPIC, 1000);
-    icpService = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATCHING_SERVICE, true);
+    icpService = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATCHING_SERVICE, false);
 
     // Fetch the transform from lidar to base_link and cache it.
     tf::TransformListener tfListener;
@@ -107,14 +107,14 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
 {
     ros::Time timeOfUpdate = ros::Time::now();
 
-    sensor_msgs::PointCloud2 referenceCloudMsg =
-            PointMatcher_ros::pointMatcherCloudToRosMsg<float>(anchorPointCursor->getCloud(), WORLD_FRAME, ros::Time(0));
-
     PM::TransformationParameters tFromReadingToAnchor =
             geo_util::transFromPoseToPose(poseOfTime(timeOfUpdate), anchorPointCursor->getPosition());
 
     sensor_msgs::PointCloud2 transformedReadingCloudMsg =
             pointmatching_tools::applyTransform(reading, tFromReadingToAnchor*tFromLidarToRobot);
+
+    sensor_msgs::PointCloud2 referenceCloudMsg =
+            PointMatcher_ros::pointMatcherCloudToRosMsg<float>(anchorPointCursor->getCloud(), WORLD_FRAME, ros::Time(0));
 
     // Service call.
     pointmatcher_ros::MatchClouds pmMessage;
@@ -178,17 +178,7 @@ geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
         previousCursor = commandCursor++;
     }
 
-    double newAngular = geo_util::linInterpolation(previousCursor->header.stamp.toSec(), previousCursor->twist.angular.z,
-                                         commandCursor->header.stamp.toSec(), commandCursor->twist.angular.z,
-                                         time.toSec());
-    double newLinear = geo_util::linInterpolation(previousCursor->header.stamp.toSec(), previousCursor->twist.linear.z,
-                                        commandCursor->header.stamp.toSec(), commandCursor->twist.linear.z,
-                                        time.toSec());
-
-    geometry_msgs::Twist retVal;
-    retVal.angular.z = newAngular;
-    retVal.linear.x = newLinear;
-    return retVal;
+    return commandCursor->twist;
 }
 
 geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
@@ -200,7 +190,7 @@ geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
         previousCursor = positionCursor++;
     }
 
-    return geo_util::linInterpolation(*previousCursor, *positionCursor, time);
+    return positionCursor->pose;
 }
 
 void Repeat::pausePlayback()
