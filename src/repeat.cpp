@@ -271,7 +271,7 @@ void updateError(const sensor_msgs::PointCloud2& msg)
 
     // Compute the difference between the anchor point and the actual pose and turn it into a
     // transformation matrix.
-    PM::TransformationParameters tFromReadingToAnchor = geo_util::transFromPoseToPose(
+    PM::TransformationParameters tFromReadingToAnchor = geo_util::pmTransFromPoseToPose(
                 rabbitPosition,
                 anchorPoints[closestAnchorIndex].getPosition());
 

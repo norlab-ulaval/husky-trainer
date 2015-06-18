@@ -18,7 +18,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES husky_trainer
- CATKIN_DEPENDS roscpp pcl_ros
+ CATKIN_DEPENDS roscpp pcl_ros sensor_msgs geometry_msgs
  DEPENDS system_lib eigen pointmatcher_ros
 )
 
@@ -30,7 +30,6 @@ add_definitions(-DHAVE_YAML_CPP)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-# include_directories(include)
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}

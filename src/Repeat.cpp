@@ -3,8 +3,8 @@
 #include <fstream>
 #include <vector>
 #include <boost/iterator.hpp>
-
-#include <pcl_ros/point_cloud.h>
+#include <pcl_ros/transforms.h>
+#include <sensor_msgs/PointCloud2.h>
 
 #include "husky_trainer/Repeat.h"
 #include "husky_trainer/ControllerMappings.h"
@@ -30,7 +30,7 @@ const double Repeat::LOOP_RATE = 100.0;
 const std::string Repeat::JOY_TOPIC = "/joy";
 const std::string Repeat::CLOUD_MATCHING_SERVICE = "/match_clouds";
 const std::string Repeat::LIDAR_FRAME = "/velodyne";
-const std::string Repeat::ROBOT_FRAME = "/base_footprint";
+const std::string Repeat::ROBOT_FRAME = "/base_link";
 const std::string Repeat::WORLD_FRAME = "/odom";
 
 Repeat::Repeat(ros::NodeHandle n) :
@@ -74,9 +74,8 @@ Repeat::Repeat(ros::NodeHandle n) :
 
     // Fetch the transform from lidar to base_link and cache it.
     tf::TransformListener tfListener;
-    tFromLidarToRobot =
-            PointMatcher_ros::transformListenerToEigenMatrix<float>(tfListener, ROBOT_FRAME,
-                                                                    LIDAR_FRAME, ros::Time(0));
+    tfListener.waitForTransform(ROBOT_FRAME, LIDAR_FRAME, ros::Time(0), ros::Duration(5.0));
+    tfListener.lookupTransform(ROBOT_FRAME, LIDAR_FRAME, ros::Time(0), tFromLidarToRobot);
 }
 
 void Repeat::spin()
@@ -110,13 +109,15 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
     sensor_msgs::PointCloud2 referenceCloudMsg =
             PointMatcher_ros::pointMatcherCloudToRosMsg<float>(anchorPointCursor->getCloud(), WORLD_FRAME, ros::Time(0));
 
-    PM::TransformationParameters tFromReadingToAnchor =
+    tf::Transform tFromReadingToAnchor =
             geo_util::transFromPoseToPose(poseOfTime(timeOfUpdate), anchorPointCursor->getPosition());
 
-    sensor_msgs::PointCloud2 transformedReadingCloudMsg =
-            pointmatching_tools::applyTransform(reading, tFromReadingToAnchor*tFromLidarToRobot);
+    Eigen::Matrix4f eigenTransform;
+    pcl_ros::transformAsMatrix(tFromReadingToAnchor*tFromLidarToRobot, eigenTransform);
 
-    // Service call.
+    sensor_msgs::PointCloud2 transformedReadingCloudMsg;
+    pcl_ros::transformPointCloud(eigenTransform, reading, transformedReadingCloudMsg);
+
     pointmatcher_ros::MatchClouds pmMessage;
     pmMessage.request.readings = transformedReadingCloudMsg;
     pmMessage.request.reference = referenceCloudMsg;

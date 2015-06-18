@@ -9,6 +9,7 @@
 #include <boost/thread/mutex.hpp>
 
 #include <ros/ros.h>
+#include <pcl_ros/point_cloud.h>
 #include <tf/transform_listener.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -64,7 +65,7 @@ private:
     IcpError currentError;
     double lambdaX, lambdaY, lambdaTheta, lookahead;
     std::string sourceTopicName;
-    PM::TransformationParameters tFromLidarToRobot;
+    tf::StampedTransform tFromLidarToRobot;
     ros::Time baseSimTime;
     ros::Time timePlaybackStarted;
     ros::Rate loopRate;

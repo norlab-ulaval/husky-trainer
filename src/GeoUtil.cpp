@@ -6,16 +6,34 @@
 namespace geo_util
 {
 
-PM::TransformationParameters transFromPoseToPose(geometry_msgs::Pose from, geometry_msgs::Pose to)
+
+Eigen::Transform<double,3,Eigen::Affine> eigenTransformOfPoses(geometry_msgs::Pose from, geometry_msgs::Pose to)
 {
     Eigen::Quaternionf fromQuat = rosQuatToEigenQuat(from.orientation);
     Eigen::Quaternionf toQuat = rosQuatToEigenQuat(to.orientation);
-    Eigen::Transform<float,3,Eigen::Affine> rotation(transFromQuatToQuat(fromQuat, toQuat));
 
-    Eigen::Translation<float,3> translation(vectorOfPoints(from.position, to.position));
-    Eigen::Transform<float,3,Eigen::Affine> T = rotation * translation;
+    Eigen::Quaternionf quaternionRotation = transFromQuatToQuat(fromQuat, toQuat);
+    Eigen::Transform<float,3,Eigen::Affine> rotation(quaternionRotation);
 
-    return T.matrix();
+    Eigen::Translation<double,3> translation(vectorOfPoints(from.position, to.position));
+    Eigen::Transform<float,3,Eigen::Affine> T = rotation * translation.cast<float>();
+
+    return T.cast<double>();
+}
+
+tf::Transform transFromPoseToPose(geometry_msgs::Pose from, geometry_msgs::Pose to)
+{
+    tf::Transform transform;
+    Eigen::Transform<double,3,Eigen::Affine> eigenT = eigenTransformOfPoses(from,to);
+    tf::transformEigenToTF(eigenT, transform);
+    return transform;
+}
+
+PM::TransformationParameters pmTransFromPoseToPose(geometry_msgs::Pose from, geometry_msgs::Pose to)
+{
+    Eigen::Transform<double,3,Eigen::Affine> T = eigenTransformOfPoses(from,to);
+
+    return  T.matrix().cast<float>();
 }
 
 Eigen::Quaternionf transFromQuatToQuat(Eigen::Quaternionf from, Eigen::Quaternionf to)
@@ -82,9 +100,9 @@ Eigen::Quaternionf rosQuatToEigenQuat(geometry_msgs::Quaternion rosQuat)
     return Eigen::Quaternionf(rosQuat.w, rosQuat.x, rosQuat.y, rosQuat.z);
 }
 
-Eigen::Vector3f vectorOfPoints(geometry_msgs::Point lhs, geometry_msgs::Point rhs)
+Eigen::Vector3d vectorOfPoints(geometry_msgs::Point lhs, geometry_msgs::Point rhs)
 {
-    return Eigen::Vector3f(rhs.x - lhs.x, rhs.y - lhs.y, rhs.z - lhs.z);
+    return Eigen::Vector3d(rhs.x - lhs.x, rhs.y - lhs.y, rhs.z - lhs.z);
 }
 
 geometry_msgs::Pose stringToPose(std::string input)
