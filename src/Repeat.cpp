@@ -107,7 +107,9 @@ void Repeat::spin()
 
 Repeat::~Repeat()
 {
+    readingTopic.shutdown();
     serviceCallLock.lock();
+    serviceCallLock.unlock();
 }
 
 void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
