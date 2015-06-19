@@ -80,7 +80,7 @@ Repeat::Repeat(ros::NodeHandle n) :
 
 void Repeat::spin()
 {
-    while(ros::ok() && commandCursor != commands.end())
+    while(ros::ok() && commandCursor < commands.end() - 1)
     {
         ros::Time timeOfSpin = simTime();
 
@@ -201,6 +201,7 @@ void Repeat::pausePlayback()
 {
     commandRepeaterTopic.publish(CommandRepeater::idleTwistCommand());
     baseSimTime += ros::Time::now() - timePlaybackStarted;
+    ROS_INFO("Paused at: %lf", baseSimTime.toSec());
 }
 
 void Repeat::startPlayback()
@@ -212,6 +213,7 @@ ros::Time Repeat::simTime()
 {
     if(currentStatus == PLAY) return baseSimTime + (ros::Time::now() - timePlaybackStarted);
     else return baseSimTime;
+
 }
 
 void Repeat::switchToStatus(Status desiredStatus)
