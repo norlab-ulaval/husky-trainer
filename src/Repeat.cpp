@@ -86,14 +86,20 @@ void Repeat::spin()
 
         double distanceToCurrentAnchorPoint =
                 geo_util::customDistance(poseOfTime(timeOfSpin), anchorPointCursor->getPosition());
-        double distanceToNextAnchorPoint =
-                geo_util::customDistance(poseOfTime(timeOfSpin), boost::next(anchorPointCursor)->getPosition());
+
+        double distanceToNextAnchorPoint;
+        if(boost::next(anchorPointCursor) != anchorPoints.end())
+        {
+            distanceToNextAnchorPoint = geo_util::customDistance(poseOfTime(timeOfSpin), boost::next(anchorPointCursor)->getPosition());
+        } else {
+            distanceToNextAnchorPoint = std::numeric_limits<double>::infinity();
+        }
 
         ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
 
         // Update the closest anchor point.
         if(boost::next(anchorPointCursor) < anchorPoints.end() &&
-           distanceToCurrentAnchorPoint <= distanceToNextAnchorPoint)
+           distanceToCurrentAnchorPoint >= distanceToNextAnchorPoint)
         {
             anchorPointCursor++;
             ROS_INFO("Switching to anchor point: %s", anchorPointCursor->name().c_str());
@@ -119,7 +125,7 @@ Repeat::~Repeat()
 
 void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
 {
-    ros::Time timeOfUpdate = ros::Time::now();
+    ros::Time timeOfUpdate = simTime();
 
     tf::Transform tFromReadingToAnchor =
             geo_util::transFromPoseToPose(poseOfTime(timeOfUpdate), anchorPointCursor->getPosition());
