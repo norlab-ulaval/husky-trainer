@@ -27,6 +27,7 @@
 class Repeat {
 public:
     Repeat(ros::NodeHandle n);
+    ~Repeat();
     void spin();
 
 private:

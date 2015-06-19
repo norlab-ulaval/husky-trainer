@@ -105,6 +105,11 @@ void Repeat::spin()
     }
 }
 
+Repeat::~Repeat()
+{
+    serviceCallLock.lock();
+}
+
 void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
 {
     ros::Time timeOfUpdate = ros::Time::now();
