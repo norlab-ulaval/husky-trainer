@@ -96,7 +96,10 @@ void Repeat::spin()
         }
 
         //Update the command we are playing.
-        commandRepeaterTopic.publish(errorAdjustedCommand(commandOfTime(timeOfSpin), currentError));
+        if(currentStatus == PLAY)
+        {
+            commandRepeaterTopic.publish(errorAdjustedCommand(commandOfTime(timeOfSpin), currentError));
+        }
 
         ros::spinOnce();
         loopRate.sleep();
