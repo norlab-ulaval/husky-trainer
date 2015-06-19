@@ -84,14 +84,19 @@ void Repeat::spin()
     {
         ros::Time timeOfSpin = simTime();
 
+        double distanceToCurrentAnchorPoint =
+                geo_util::customDistance(poseOfTime(timeOfSpin), anchorPointCursor->getPosition());
+        double distanceToNextAnchorPoint =
+                geo_util::customDistance(poseOfTime(timeOfSpin), boost::next(anchorPointCursor)->getPosition());
+
+        ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
+
         // Update the closest anchor point.
         if(boost::next(anchorPointCursor) < anchorPoints.end() &&
-                geo_util::customDistance(poseOfTime(timeOfSpin),
-                                         anchorPointCursor->getPosition()) >
-                geo_util::customDistance(poseOfTime(timeOfSpin),
-                                         boost::next(anchorPointCursor)->getPosition()))
+           distanceToCurrentAnchorPoint <= distanceToNextAnchorPoint)
         {
             anchorPointCursor++;
+            ROS_INFO("Switching to anchor point: %s", anchorPointCursor->name().c_str());
         }
 
         //Update the command we are playing.
