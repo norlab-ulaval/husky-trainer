@@ -15,6 +15,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Joy.h>
+#include <std_msgs/Float32MultiArray.h>
 
 #include "pointmatcher_ros/MatchClouds.h"
 #include "pointmatcher_ros/transform.h"
@@ -32,7 +33,7 @@ public:
 
 private:
     enum Status { PLAY = 0, PAUSE, ERROR };
-    typedef boost::tuple<double, double, double> IcpError;
+    typedef boost::tuple<double, double, double> IcpError; // Ordered as follows: x, y, theta.
     typedef PointMatcher<float> PM;
     typedef PM::DataPoints DP;
 
@@ -56,6 +57,8 @@ private:
     // Other constants.
     static const double LOOP_RATE;
     static const std::string JOY_TOPIC;
+    static const std::string REFERENCE_POSE_TOPIC;
+    static const std::string ERROR_REPORTING_TOPIC;
     static const std::string CLOUD_MATCHING_SERVICE;
     static const std::string LIDAR_FRAME;
     static const std::string ROBOT_FRAME;
@@ -81,6 +84,8 @@ private:
     ros::Subscriber readingTopic;
     ros::Subscriber joystickTopic;
     ros::Publisher commandRepeaterTopic;
+    ros::Publisher errorReportingTopic;
+    ros::Publisher referencePoseTopic;
     ros::ServiceClient icpService;
     boost::mutex serviceCallLock;
 
@@ -101,6 +106,7 @@ private:
     geometry_msgs::Twist commandOfTime(ros::Time time);
     geometry_msgs::Pose poseOfTime(ros::Time time);
     geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist command, IcpError error);
+    static void publishError(IcpError error, ros::Publisher topic);
 };
 
 #endif

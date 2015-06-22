@@ -5,6 +5,7 @@
 #include <boost/iterator.hpp>
 #include <pcl_ros/transforms.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <std_msgs/Float32MultiArray.h>
 
 #include "husky_trainer/Repeat.h"
 #include "husky_trainer/ControllerMappings.h"
@@ -28,6 +29,8 @@ const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC = "/teach_repeat/desired_
 
 const double Repeat::LOOP_RATE = 100.0;
 const std::string Repeat::JOY_TOPIC = "/joy";
+const std::string Repeat::REFERENCE_POSE_TOPIC = "/teach_repeat/reference_pose";
+const std::string Repeat::ERROR_REPORTING_TOPIC = "/teach_repeat/reported_error";
 const std::string Repeat::CLOUD_MATCHING_SERVICE = "/match_clouds";
 const std::string Repeat::LIDAR_FRAME = "/velodyne";
 const std::string Repeat::ROBOT_FRAME = "/base_link";
@@ -69,7 +72,9 @@ Repeat::Repeat(ros::NodeHandle n) :
     // Make the appropriate subscriptions.
     readingTopic = n.subscribe(sourceTopicName, 10, &Repeat::cloudCallback, this);
     joystickTopic = n.subscribe(JOY_TOPIC, 1000, &Repeat::joystickCallback, this);
+    errorReportingTopic = n.advertise<std_msgs::Float32MultiArray>(ERROR_REPORTING_TOPIC, 1000);
     commandRepeaterTopic = n.advertise<geometry_msgs::Twist>(DEFAULT_COMMAND_OUTPUT_TOPIC, 1000);
+    referencePoseTopic = n.advertise<geometry_msgs::Pose>(REFERENCE_POSE_TOPIC, 100);
     icpService = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATCHING_SERVICE, false);
 
     // Fetch the transform from lidar to base_link and cache it.
@@ -95,7 +100,7 @@ void Repeat::spin()
             distanceToNextAnchorPoint = std::numeric_limits<double>::infinity();
         }
 
-        ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
+        //ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
 
         // Update the closest anchor point.
         if(boost::next(anchorPointCursor) < anchorPoints.end() &&
@@ -111,6 +116,8 @@ void Repeat::spin()
             commandRepeaterTopic.publish(errorAdjustedCommand(commandOfTime(timeOfSpin), currentError));
         }
 
+        referencePoseTopic.publish(poseOfTime(simTime()));
+
         ros::spinOnce();
         loopRate.sleep();
     }
@@ -125,10 +132,8 @@ Repeat::~Repeat()
 
 void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
 {
-    ros::Time timeOfUpdate = simTime();
-
     tf::Transform tFromReadingToAnchor =
-            geo_util::transFromPoseToPose(poseOfTime(timeOfUpdate), anchorPointCursor->getPosition());
+            geo_util::transFromPoseToPose(poseOfTime(simTime()), anchorPointCursor->getPosition());
 
     Eigen::Matrix4f eigenTransform;
     pcl_ros::transformAsMatrix(tFromReadingToAnchor*tFromLidarToRobot, eigenTransform);
@@ -148,7 +153,7 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
         if(icpService.call(pmMessage))
         {
             currentError = pointmatching_tools::controlErrorOfTransformation(pmMessage.response.transform);
-            ROS_INFO("Error. X: %f, Y: %f, Theta: %f", currentError.get<0>(), currentError.get<1>(), currentError.get<2>());
+            publishError(currentError, errorReportingTopic);
         } else {
             ROS_WARN("There was a problem with the point matching service.");
             switchToStatus(ERROR);
@@ -269,6 +274,27 @@ void Repeat::switchToStatus(Status desiredStatus)
         }
         break;
     }
+}
+
+void Repeat::publishError(IcpError error, ros::Publisher topic)
+{
+    std_msgs::Float32MultiArray msg;
+
+    std_msgs::MultiArrayDimension dimension;
+    dimension.size = 1;
+    dimension.label = "Error x.";
+    msg.layout.dim.push_back(dimension);
+    dimension.label = "Error y";
+    msg.layout.dim.push_back(dimension);
+    dimension.label = "Error theta";
+    msg.layout.dim.push_back(dimension);
+
+    msg.data.clear();
+    msg.data.push_back(error.get<0>());
+    msg.data.push_back(error.get<1>());
+    msg.data.push_back(error.get<2>());
+
+    topic.publish(msg);
 }
 
 void Repeat::loadCommands(const std::string filename, std::vector<geometry_msgs::TwistStamped>& out)
