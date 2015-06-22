@@ -41,7 +41,7 @@ link_directories(${Eigen_LIBRARY_DIRS} ${libpointmatcher_LIB})
 add_definitions(${Eigen_DEFINITIONS})
 
 add_executable(
-husky_teach_node
+teach
 include/husky_trainer/AnchorPoint.h
 include/husky_trainer/PointMatching.h
 include/husky_trainer/GeoUtil.h
@@ -50,17 +50,6 @@ src/PointMatching.cpp
 src/AnchorPoint.cpp
 src/teach.cpp
 )
-
-add_executable(
-husky_repeat_node
-include/husky_trainer/AnchorPoint.h
-include/husky_trainer/PointMatching.h
-include/husky_trainer/GeoUtil.h
-src/GeoUtil.cpp
-src/PointMatching.cpp
-src/AnchorPoint.cpp
-src/CommandRepeater.cpp
-src/repeat.cpp)
 
 add_executable(
 repeat
@@ -74,17 +63,16 @@ src/repeat_main.cpp
 )
 
 add_executable(
-command_repeater_node
+command_repeater
 include/husky_trainer/CommandRepeater.h
 include/husky_trainer/ControllerMappings.h
 src/CommandRepeater.cpp
 src/command_repeater_main.cpp
 )
 
-target_link_libraries(husky_teach_node ${catkin_LIBRARIES} pointmatcher)
-target_link_libraries(husky_repeat_node ${catkin_LIBRARIES} pointmatcher)
+target_link_libraries(teach ${catkin_LIBRARIES} pointmatcher)
 target_link_libraries(repeat ${catkin_LIBRARIES})
-target_link_libraries(command_repeater_node ${catkin_LIBRARIES})
+target_link_libraries(command_repeater ${catkin_LIBRARIES})
 
 
 catkin_add_gtest(
