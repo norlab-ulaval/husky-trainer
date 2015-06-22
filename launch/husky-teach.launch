@@ -1,4 +1,7 @@
 <launch>
+    <include file="$(find velodyne_pointcloud)/launche/throttled_32e_points.launch">
+        <param name="frequency" value="10" />
+    </include>
     <node name="cloud_recorder" pkg="pointcloud_tools" type="cloud_recorder" cwd="node"> 
       <param name="working_directory" type="str" value="$(env PWD)" />
       <param name="source" type="str" value="/anchor_points" />

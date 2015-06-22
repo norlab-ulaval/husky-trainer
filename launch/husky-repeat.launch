@@ -2,7 +2,9 @@
 <launch>
     <arg name="icp_config"/>
     <arg name="working_directory" default="$(env PWD)" />
-    <include file="$(find velodyne_pointcloud)/launch/throttled_32e_points.launch" />
+    <include file="$(find velodyne_pointcloud)/launch/throttled_32e_points.launch">
+        <param name="frequency" value="10" />
+    </include>
 
     <node name="cloud_matcher" pkg="pointmatcher_ros" type="matcher_service" >
       <param name="config" type="str" value="$(arg icp_config)" />
