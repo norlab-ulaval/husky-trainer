@@ -2,6 +2,10 @@
 <launch>
     <arg name="icp_config"/>
     <arg name="working_directory" default="$(env PWD)" />
+    <arg name="lx" default="0.0" />
+    <arg name="ly" default="0.0" />
+    <arg name="lt" default="0.0" />
+
     <include file="$(find velodyne_pointcloud)/launch/throttled_32e_points.launch">
         <param name="frequency" value="10" />
     </include>
@@ -15,5 +19,8 @@
     </node>
     <node name="repeat_node" pkg="husky_trainer" type="repeat">
         <param name="working_directory" value="$(arg working_directory)" />
+        <param name="lx" value="$(arg lx)" />
+        <param name="ly" value="$(arg ly)" />
+        <param name="lt" value="$(arg lt)" />
     </node>
 </launch>
