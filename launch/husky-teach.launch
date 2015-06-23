@@ -1,5 +1,5 @@
 <launch>
-    <include file="$(find velodyne_pointcloud)/launche/throttled_32e_points.launch">
+    <include file="$(find velodyne_pointcloud)/launch/throttled_32e_points.launch">
         <param name="frequency" value="10" />
     </include>
     <node name="cloud_recorder" pkg="pointcloud_tools" type="cloud_recorder" cwd="node"> 
