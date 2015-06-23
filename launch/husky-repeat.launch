@@ -6,7 +6,7 @@
     <arg name="ly" default="0.0" />
     <arg name="lt" default="0.0" />
 
-    <include file="$(find velodyne_pointcloud)/launch/throttled_32e_points.launch">
+    <include file="$(find velodyne_pointcloud)/launch/32e_points.launch">
         <param name="frequency" value="10" />
     </include>
 
