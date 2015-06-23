@@ -19,6 +19,7 @@
     </node>
     <node name="repeat_node" pkg="husky_trainer" type="repeat">
         <param name="working_directory" value="$(arg working_directory)" />
+        <param name="readings_topic" value="/velodyne_points" />
         <param name="lx" value="$(arg lx)" />
         <param name="ly" value="$(arg ly)" />
         <param name="lt" value="$(arg lt)" />

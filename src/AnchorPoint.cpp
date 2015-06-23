@@ -3,6 +3,8 @@
 
 #define SCAN_RADIUS_BALLPARK 10.0
 
+const std::string AnchorPoint::POINT_CLOUD_FRAME = "/odom";
+
 AnchorPoint::AnchorPoint() : mPointCloud()
 { }
 
@@ -11,7 +13,7 @@ AnchorPoint::AnchorPoint(std::string& anchorPointName, geometry_msgs::Pose posit
 { }
 
 AnchorPoint::AnchorPoint(std::string& anchorPointName, 
-        geometry_msgs::Pose position, PointMatcher<float>::DataPoints cloud) :
+        geometry_msgs::Pose position, sensor_msgs::PointCloud2 cloud) :
     mAnchorPointName(anchorPointName), mPointCloud(cloud), mPosition(position)
 { }
 
@@ -39,7 +41,7 @@ AnchorPoint::~AnchorPoint()
 
 }
 
-PointMatcher<float>::DataPoints AnchorPoint::getCloud() const
+sensor_msgs::PointCloud2 AnchorPoint::getCloud() const
 {
     return mPointCloud;
 }
@@ -47,12 +49,14 @@ PointMatcher<float>::DataPoints AnchorPoint::getCloud() const
 
 void AnchorPoint::loadFromDisk()
 {
-    mPointCloud = PointMatcherIO<float>::loadVTK(mAnchorPointName);
+    PointMatcher<float>::DataPoints pointCloudBuffer = PointMatcherIO<float>::loadVTK(mAnchorPointName);
+    mPointCloud = PointMatcher_ros::pointMatcherCloudToRosMsg<float>(pointCloudBuffer, POINT_CLOUD_FRAME, ros::Time(0));
 }
 
 void AnchorPoint::saveToDisk()
 {
-    mPointCloud.save(mAnchorPointName);
+    PointMatcher<float>::DataPoints pointCloudBuffer = PointMatcher_ros::rosMsgToPointMatcherCloud<float>(mPointCloud);
+    pointCloudBuffer.save(mAnchorPointName);
 }
 
 std::ostream& operator<<(std::ostream& out, AnchorPoint& ap)

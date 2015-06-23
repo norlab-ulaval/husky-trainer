@@ -141,12 +141,9 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
     sensor_msgs::PointCloud2 transformedReadingCloudMsg;
     pcl_ros::transformPointCloud(eigenTransform, reading, transformedReadingCloudMsg);
 
-    sensor_msgs::PointCloud2 referenceCloudMsg =
-            PointMatcher_ros::pointMatcherCloudToRosMsg<float>(anchorPointCursor->getCloud(), WORLD_FRAME, ros::Time(0));
-
     pointmatcher_ros::MatchClouds pmMessage;
     pmMessage.request.readings = transformedReadingCloudMsg;
-    pmMessage.request.reference = referenceCloudMsg;
+    pmMessage.request.reference = anchorPointCursor->getCloud();
 
     if(serviceCallLock.try_lock())
     {

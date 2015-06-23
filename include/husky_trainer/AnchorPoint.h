@@ -7,35 +7,39 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/Pose.h>
+#include <sensor_msgs/PointCloud2.h>
 
 #include <pointmatcher/PointMatcher.h>
 #include <pointmatcher/IO.h>
+#include <pointmatcher_ros/point_cloud.h>
 
 #include "husky_trainer/GeoUtil.h"
 
 
 class AnchorPoint {
-    private:
-        std::string mAnchorPointName;
-        PointMatcher<float>::DataPoints mPointCloud;
-        geometry_msgs::Pose mPosition;
+private:
+    const static std::string POINT_CLOUD_FRAME;
 
-    public:
-        AnchorPoint(std::string& anchorPointName, geometry_msgs::Pose position);
-        AnchorPoint(std::string& anchorPointName, geometry_msgs::Pose position, PointMatcher<float>::DataPoints cloud);
-        AnchorPoint(std::string& anchorPointEntry);
-        AnchorPoint();
-        ~AnchorPoint();
+    std::string mAnchorPointName;
+    sensor_msgs::PointCloud2 mPointCloud;
+    geometry_msgs::Pose mPosition;
 
-        PointMatcher<float>::DataPoints getCloud() const;
-        void loadFromDisk();
-        void saveToDisk();
+public:
+    AnchorPoint(std::string& anchorPointName, geometry_msgs::Pose position);
+    AnchorPoint(std::string& anchorPointName, geometry_msgs::Pose position, sensor_msgs::PointCloud2 cloud);
+    AnchorPoint(std::string& anchorPointEntry);
+    AnchorPoint();
+    ~AnchorPoint();
 
-        
-        friend std::ostream& operator<<(std::ostream& out, AnchorPoint& ap);
+    sensor_msgs::PointCloud2 getCloud() const;
+    void loadFromDisk();
+    void saveToDisk();
 
-        std::string name() const;
-        geometry_msgs::Pose getPosition() const;
+
+    friend std::ostream& operator<<(std::ostream& out, AnchorPoint& ap);
+
+    std::string name() const;
+    geometry_msgs::Pose getPosition() const;
 };
 
 #endif
