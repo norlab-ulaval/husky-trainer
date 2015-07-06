@@ -5,6 +5,17 @@ under ROS.
 
 Tested under ROS Hydro.
 
+## How it works
+
+During the teach phase, the robot records point clouds of its surrondings along
+with their positions. The commands sent to the robot are recorded as well.
+
+During the repeat phase, the commands are played back again. The robot compares
+the point clouds he reads to the point clouds he saved during the teach phase,
+and computes the transformation to go from the reading to the recorded point
+cloud. This transformation is then sent to a controller that will try to
+compensate the error.
+
 ## Usage
 
 ### Teach
