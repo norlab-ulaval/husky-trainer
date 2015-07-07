@@ -52,10 +52,17 @@ with the launchfiles.
 
 ### teach
 
-No parameters are interfaced. Note that there must be a node that records point
-clouds to disk that is running for the teach to be useful. The clouds that
-should be saved are sent on the `/anchor_points` topic. The `cloud_recorder`
-node from the `pointcloud-tools` was used for testing.
+Note that there must be a node that records point clouds to disk that is running
+for the teach to be useful. The clouds that should be saved are sent on the
+`/anchor_points` topic. The `cloud_recorder` node from the `pointcloud-tools` 
+was used for testing.
+
+#### Parameters
+
+- `ap_distance`. The desired distance between anchor points. This is
+  meant to avoid recording a bunch of clouds when the robot is not moving. If
+  set to 0, all the incoming point clouds will be recorded as anchor points.
+  Default: 0.1 m.
 
 ### repeat
 

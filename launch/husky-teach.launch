@@ -1,12 +1,13 @@
 <launch>
-    <include file="$(find velodyne_pointcloud)/launch/throttled_32e_points.launch">
-        <param name="frequency" value="10" />
-    </include>
+    <arg name="ap_distance" default="0.1" />
+
+    <include file="$(find velodyne_pointcloud)/launch/32e_points.launch" />
     <node name="cloud_recorder" pkg="pointcloud_tools" type="cloud_recorder" cwd="node"> 
       <param name="working_directory" type="str" value="$(env PWD)" />
       <param name="source" type="str" value="/anchor_points" />
     </node>
     <node name="teach_node" pkg="husky_trainer" type="teach" cwd="node">
       <param name="working_directory" type="str" value="$(env PWD)" />
+      <param name="ap_distance" value="$(arg ap_distance)" />
     </node>
 </launch>

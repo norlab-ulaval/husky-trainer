@@ -33,6 +33,7 @@
 #include "husky_trainer/PointMatching.h"
 
 #define WORKING_DIRECTORY_PARAM "working_directory"
+#define AP_TRIGGER_PARAM "ap_distance"
 #define DEFAULT_WORKING_DIRECTORY ""  // current working directory
 
 #define JOYSTICK_TOPIC "/joy"
@@ -47,7 +48,7 @@
 
 #define Y_BUTTON_INDEX 3
 
-#define ANCHOR_POINT_DISTANCE 0.1  // The approx distance we want between every anchor point.
+#define DEFAULT_AP_TRIGGER 0.1  // The approx distance we want between every anchor point.
 #define LOOP_RATE 100
 #define L_SEP ","
 
@@ -60,6 +61,7 @@ std::ofstream* pSpeedRecord;
 int nextCloudIndex;
 float lastTravelRecorded;
 float travelOfLastAnchor;
+double distanceBetweenAnchorPoints;
 
 // Path recording information.
 ros::Time teachingStartTime;
@@ -117,7 +119,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
     {
         // Check if we traveled enough to get a new cloud, or if the travel value
         // has overflowed since the last cloud was recorded.
-        if(fabs(lastTravelRecorded - travelOfLastAnchor) > ANCHOR_POINT_DISTANCE)
+        if(fabs(lastTravelRecorded - travelOfLastAnchor) > distanceBetweenAnchorPoints)
         {
             ros::Time startTime = ros::Time::now();
 
@@ -181,6 +183,9 @@ int main(int argc, char **argv)
     ros::NodeHandle n("~");
 
     n.getParam(WORKING_DIRECTORY_PARAM, workingDirectory);
+    n.param<double>(AP_TRIGGER_PARAM, 
+            distanceBetweenAnchorPoints, 
+            DEFAULT_AP_TRIGGER);
 
     if(chdir(workingDirectory.c_str()) != 0)
     {
