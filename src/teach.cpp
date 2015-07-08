@@ -112,7 +112,7 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
 }
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
-{
+{tLidarToBaseLink
     ROS_INFO("Travel: %f", fabs(lastTravelRecorded - travelOfLastAnchor));
 
     if(teachingStartTime != ros::Time(0))

@@ -279,12 +279,6 @@ void Repeat::publishError(IcpError error, ros::Publisher topic)
 
     std_msgs::MultiArrayDimension dimension;
     dimension.size = 1;
-    dimension.label = "Error x.";
-    msg.layout.dim.push_back(dimension);
-    dimension.label = "Error y";
-    msg.layout.dim.push_back(dimension);
-    dimension.label = "Error theta";
-    msg.layout.dim.push_back(dimension);
 
     msg.data.clear();
     msg.data.push_back(error.get<0>());
