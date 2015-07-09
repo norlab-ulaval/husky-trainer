@@ -34,6 +34,7 @@
 
 #define WORKING_DIRECTORY_PARAM "working_directory"
 #define AP_TRIGGER_PARAM "ap_distance"
+#define ANGLE_AP_PARAM "ap_angle"
 #define DEFAULT_WORKING_DIRECTORY ""  // current working directory
 
 #define JOYSTICK_TOPIC "/joy"
@@ -49,6 +50,7 @@
 #define Y_BUTTON_INDEX 3
 
 #define DEFAULT_AP_TRIGGER 0.1  // The approx distance we want between every anchor point.
+#define DEFAULT_AP_ANGLE 0.1
 #define LOOP_RATE 100
 #define L_SEP ","
 
@@ -58,10 +60,15 @@ typedef PointMatcher<float> PM;
 std::string workingDirectory;
 std::ofstream* pPositionRecord;
 std::ofstream* pSpeedRecord;
+
 int nextCloudIndex;
 float lastTravelRecorded;
 float travelOfLastAnchor;
+float lastYawRecorded;
+float yawOfLastAnchor;
+
 double distanceBetweenAnchorPoints;
+double angleBetweenAnchorPoints;
 
 // Path recording information.
 ros::Time teachingStartTime;
@@ -70,7 +77,6 @@ boost::mutex anchorPointListMutex;
 geometry_msgs::Pose lastOdomPosition;
 PM::TransformationParameters tLidarToBaseLink;
 ros::Publisher* pCloudRecorderTopic;
-
 
 void saveAnchorPointList(std::vector<AnchorPoint>& list)
 {
@@ -112,22 +118,23 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
 }
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
-{tLidarToBaseLink
+{
     ROS_INFO("Travel: %f", fabs(lastTravelRecorded - travelOfLastAnchor));
+    ROS_INFO("Angle diff: %f", fabs(lastYawRecorded - yawOfLastAnchor));
 
     if(teachingStartTime != ros::Time(0))
     {
         // Check if we traveled enough to get a new cloud, or if the travel value
         // has overflowed since the last cloud was recorded.
-        if(fabs(lastTravelRecorded - travelOfLastAnchor) > distanceBetweenAnchorPoints)
+        if(fabs(lastTravelRecorded - travelOfLastAnchor) > distanceBetweenAnchorPoints ||
+                fabs(lastYawRecorded - yawOfLastAnchor) > angleBetweenAnchorPoints)
         {
             ros::Time startTime = ros::Time::now();
 
             travelOfLastAnchor = lastTravelRecorded;
+            yawOfLastAnchor = lastYawRecorded;
 
             ROS_INFO("Saving a new anchor point");
-
-
 
             boost::thread cloudRecordingThread(recordCloud, *msg);
 
@@ -152,6 +159,7 @@ void joystickCallback(const sensor_msgs::Joy::ConstPtr& joy)
 void odomCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
 {
     lastOdomPosition = msg->pose.pose;
+    lastYawRecorded = geo_util::quatTo2dYaw(msg->pose.pose.orientation);
 
     if(teachingStartTime != ros::Time(0))
     {
@@ -186,6 +194,7 @@ int main(int argc, char **argv)
     n.param<double>(AP_TRIGGER_PARAM, 
             distanceBetweenAnchorPoints, 
             DEFAULT_AP_TRIGGER);
+    n.param<double>(ANGLE_AP_PARAM, angleBetweenAnchorPoints, DEFAULT_AP_ANGLE);
 
     if(chdir(workingDirectory.c_str()) != 0)
     {
@@ -221,6 +230,8 @@ int main(int argc, char **argv)
 
     lastTravelRecorded = 0.0;
     travelOfLastAnchor = 0.0;
+    lastYawRecorded = 0.0;
+    yawOfLastAnchor = 0.0;
     teachingStartTime = ros::Time(0);
 
     ros::Rate loop_rate(LOOP_RATE);
