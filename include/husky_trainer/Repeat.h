@@ -16,6 +16,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <dynamic_reconfigure/server.h>
 
 #include "pointmatcher_ros/MatchClouds.h"
 #include "pointmatcher_ros/transform.h"
@@ -24,6 +25,8 @@
 #include "husky_trainer/CommandRepeater.h"
 #include "husky_trainer/AnchorPoint.h"
 #include "husky_trainer/PointMatching.h"
+#include "husky_trainer/AnchorPointSwitch.h"
+#include "husky_trainer/controllerConfig.h"
 
 class Repeat {
 public:
@@ -59,6 +62,7 @@ private:
     static const std::string JOY_TOPIC;
     static const std::string REFERENCE_POSE_TOPIC;
     static const std::string ERROR_REPORTING_TOPIC;
+    static const std::string AP_SWITCH_TOPIC;
     static const std::string CLOUD_MATCHING_SERVICE;
     static const std::string LIDAR_FRAME;
     static const std::string ROBOT_FRAME;
@@ -68,6 +72,7 @@ private:
     Status currentStatus;
     IcpError currentError;
     double lambdaX, lambdaY, lambdaTheta, lookahead;
+    double lpFilterTimeConst; // Low-pass filter time constant.
     std::string sourceTopicName;
     tf::StampedTransform tFromLidarToRobot;
     ros::Time baseSimTime;
@@ -86,8 +91,10 @@ private:
     ros::Publisher commandRepeaterTopic;
     ros::Publisher errorReportingTopic;
     ros::Publisher referencePoseTopic;
+    ros::Publisher anchorPointSwitchTopic;
     ros::ServiceClient icpService;
     boost::mutex serviceCallLock;
+    dynamic_reconfigure::Server<husky_trainer::controllerConfig> drServer;
 
     // Functions.
     static void loadAnchorPoints(std::string filename, std::vector<AnchorPoint>& out);
@@ -95,6 +102,7 @@ private:
     static void loadPositions(std::string filename, std::vector<geometry_msgs::PoseStamped>& out);
     void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg);
     void joystickCallback(sensor_msgs::Joy::ConstPtr msg);
+    void controllerParametersCallback(husky_trainer::controllerConfig &params, uint32_t level);
 
     // Time management.
     void switchToStatus(Status desiredStatus);

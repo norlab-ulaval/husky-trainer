@@ -11,19 +11,11 @@
 #include "husky_trainer/ControllerMappings.h"
 
 // Parameter names.
-const std::string Repeat::LAMBDA_X_PARAM = "lx";
-const std::string Repeat::LAMBDA_Y_PARAM = "ly";
-const std::string Repeat::LAMBDA_THETA_PARAM = "lt";
-const std::string Repeat::LOOKAHEAD_PARAM = "lookahead";
 const std::string Repeat::SOURCE_TOPIC_PARAM = "readings_topic";
 const std::string Repeat::COMMAND_OUTPUT_PARAM = "command_output_topic";
 const std::string Repeat::WORKING_DIRECTORY_PARAM = "working_directory";
 
 // Default values.
-const double Repeat::DEFAULT_LAMBDA_X = 0.0;
-const double Repeat::DEFAULT_LAMBDA_Y = 0.0;
-const double Repeat::DEFAULT_LAMBDA_THETA = 0.0;
-const double Repeat::DEFAULT_LOOKAHEAD = 0.2;
 const std::string Repeat::DEFAULT_SOURCE_TOPIC = "/cloud";
 const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC = "/teach_repeat/desired_command";
 
@@ -31,6 +23,7 @@ const double Repeat::LOOP_RATE = 100.0;
 const std::string Repeat::JOY_TOPIC = "/joy";
 const std::string Repeat::REFERENCE_POSE_TOPIC = "/teach_repeat/reference_pose";
 const std::string Repeat::ERROR_REPORTING_TOPIC = "/teach_repeat/reported_error";
+const std::string Repeat::AP_SWITCH_TOPIC = "/teach_repeat/ap_switch";
 const std::string Repeat::CLOUD_MATCHING_SERVICE = "/match_clouds";
 const std::string Repeat::LIDAR_FRAME = "/velodyne";
 const std::string Repeat::ROBOT_FRAME = "/base_link";
@@ -41,11 +34,12 @@ Repeat::Repeat(ros::NodeHandle n) :
 {
     std::string workingDirectory;
 
+    // Setup the dynamic reconfiguration server.
+    dynamic_reconfigure::Server<husky_trainer::controllerConfig>::CallbackType callback;
+    callback = boost::bind(&Repeat::controllerParametersCallback, this, _1, _2);
+    drServer.setCallback(callback);
+
     // Read parameters.
-    n.param<double>(LAMBDA_X_PARAM, lambdaX, DEFAULT_LAMBDA_X);
-    n.param<double>(LAMBDA_Y_PARAM, lambdaY, DEFAULT_LAMBDA_Y);
-    n.param<double>(LAMBDA_THETA_PARAM, lambdaTheta, DEFAULT_LAMBDA_THETA);
-    n.param<double>(LOOKAHEAD_PARAM, lookahead, DEFAULT_LOOKAHEAD);
     n.param<std::string>(SOURCE_TOPIC_PARAM, sourceTopicName, DEFAULT_SOURCE_TOPIC);
     n.param<std::string>(WORKING_DIRECTORY_PARAM, workingDirectory, "");
 
@@ -53,9 +47,6 @@ Repeat::Repeat(ros::NodeHandle n) :
     {
         ROS_WARN("Failed to switch to the demanded directory.");
     }
-
-    ROS_INFO_STREAM("Lambda values: " << lambdaX << ", " << lambdaY << ", " << lambdaTheta << ".");
-    ROS_INFO_STREAM("Lookahead: " << lookahead);
 
     // Read from the teach files.
     loadCommands("speeds.sl", commands);
@@ -75,6 +66,8 @@ Repeat::Repeat(ros::NodeHandle n) :
     errorReportingTopic = n.advertise<std_msgs::Float32MultiArray>(ERROR_REPORTING_TOPIC, 1000);
     commandRepeaterTopic = n.advertise<geometry_msgs::Twist>(DEFAULT_COMMAND_OUTPUT_TOPIC, 1000);
     referencePoseTopic = n.advertise<geometry_msgs::Pose>(REFERENCE_POSE_TOPIC, 100);
+    anchorPointSwitchTopic = n.advertise<husky_trainer::AnchorPointSwitch>(AP_SWITCH_TOPIC, 1000);
+
     icpService = n.serviceClient<pointmatcher_ros::MatchClouds>(CLOUD_MATCHING_SERVICE, false);
 
     // Fetch the transform from lidar to base_link and cache it.
@@ -92,13 +85,9 @@ void Repeat::spin()
         double distanceToCurrentAnchorPoint =
                 geo_util::customDistance(poseOfTime(timeOfSpin), anchorPointCursor->getPosition());
 
-        double distanceToNextAnchorPoint;
-        if(boost::next(anchorPointCursor) != anchorPoints.end())
-        {
-            distanceToNextAnchorPoint = geo_util::customDistance(poseOfTime(timeOfSpin), boost::next(anchorPointCursor)->getPosition());
-        } else {
-            distanceToNextAnchorPoint = std::numeric_limits<double>::infinity();
-        }
+        double distanceToNextAnchorPoint = (boost::next(anchorPointCursor) != anchorPoints.end()) ? 
+                geo_util::customDistance(poseOfTime(timeOfSpin), boost::next(anchorPointCursor)->getPosition()) :
+                std::numeric_limits<double>::infinity();
 
         //ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
 
@@ -107,7 +96,11 @@ void Repeat::spin()
            distanceToCurrentAnchorPoint >= distanceToNextAnchorPoint)
         {
             anchorPointCursor++;
-            ROS_INFO("Switching to anchor point: %s", anchorPointCursor->name().c_str());
+
+            husky_trainer::AnchorPointSwitch msg;
+            msg.stamp = ros::Time::now();
+            msg.newAnchorPoint = anchorPointCursor->name();
+            anchorPointSwitchTopic.publish(msg);
         }
 
         //Update the command we are playing.
@@ -343,4 +336,15 @@ void Repeat::loadAnchorPoints(const std::string filename, std::vector<AnchorPoin
     } else {
         ROS_ERROR_STREAM("Could not open anchor points file: " << filename);
     }
+}
+
+void Repeat::controllerParametersCallback(
+        husky_trainer::controllerConfig &params, 
+        uint32_t level)
+{
+    lookahead = params.lookahead;
+    lambdaX = params.lambda_x;
+    lambdaY = params.lambda_y;
+    lambdaTheta = params.lambda_t;
+    lpFilterTimeConst = params.lp_filter_time_const;    
 }

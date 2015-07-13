@@ -9,16 +9,39 @@ find_package(catkin REQUIRED COMPONENTS
     roscpp
     pointmatcher_ros
     pcl_ros
+    std_msgs
+    message_generation
+    dynamic_reconfigure
 )
 
 find_package(Eigen REQUIRED)
 find_package(libpointmatcher REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 
+add_message_files(
+    FILES
+    AnchorPointSwitch.msg
+    NamesPointCloud.msg
+)
+
+generate_messages(
+    DEPENDENCIES
+    std_msgs
+    sensor_msgs
+)
+
+generate_dynamic_reconfigure_options(cfg/controller_params.cfg)
+
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES husky_trainer
- CATKIN_DEPENDS roscpp pcl_ros sensor_msgs geometry_msgs
+ CATKIN_DEPENDS 
+    roscpp 
+    pcl_ros
+    sensor_msgs
+    geometry_msgs
+    message_runtime
+    dynamic_reconfigure
  DEPENDS system_lib eigen pointmatcher_ros
 )
 
