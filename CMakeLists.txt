@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen REQUIRED)
 find_package(libpointmatcher REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
+find_package(PCL REQUIRED COMPONENTS io)
 
 add_message_files(
     FILES
@@ -92,6 +93,13 @@ include/husky_trainer/ControllerMappings.h
 src/CommandRepeater.cpp
 src/command_repeater_main.cpp
 )
+
+
+add_executable(teach_cloud_recorder 
+    src/cloud_recorder.cpp 
+    src/CloudRecorder.cpp
+    include/husky_trainer/CloudRecorder.h)
+target_link_libraries(teach_cloud_recorder ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 target_link_libraries(teach ${catkin_LIBRARIES} pointmatcher)
 target_link_libraries(repeat ${catkin_LIBRARIES})
