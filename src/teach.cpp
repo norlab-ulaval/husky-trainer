@@ -31,6 +31,7 @@
 
 #include "husky_trainer/AnchorPoint.h"
 #include "husky_trainer/PointMatching.h"
+#include "husky_trainer/NamedPointCloud.h"
 
 #define WORKING_DIRECTORY_PARAM "working_directory"
 #define AP_TRIGGER_PARAM "ap_distance"
@@ -42,7 +43,7 @@
 #define POSE_ESTIMATE_TOPIC "/robot_pose_ekf/odom_combined"
 #define WHEEL_TRAVEL_TOPIC "/husky/data/encoders"
 #define VEL_TOPIC "/husky/cmd_vel"
-#define CLOUD_RECORDER_TOPIC "/anchor_points"
+#define CLOUD_RECORDER_TOPIC "/teach_repeat/anchor_points"
 
 #define ROBOT_FRAME "/base_footprint"
 #define LIDAR_FRAME "/velodyne"
@@ -99,18 +100,23 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
 
     pointmatching_tools::applyTransform(dataPoints, tLidarToBaseLink);
 
-    sensor_msgs::PointCloud2 transformedMsg =
-            PointMatcher_ros::pointMatcherCloudToRosMsg<float>(dataPoints, "base_link", ros::Time(0));
+    husky_trainer::NamedPointCloud namedCloud;
+    namedCloud.cloud = 
+        PointMatcher_ros::pointMatcherCloudToRosMsg<float>(
+            dataPoints, 
+            ROBOT_FRAME, 
+            ros::Time::now()
+        );
 
-    transformedMsg.header.seq = nextCloudIndex;
-
-    pCloudRecorderTopic->publish(transformedMsg);
-
+    // Create the name of the point cloud.
     std::stringstream ss;
-    ss << nextCloudIndex++ << ".vtk";
-    std::string filename = ss.str();
+    ss.fill('0');
+    ss << std::setw(5) << nextCloudIndex++ << ".vtk";
+    namedCloud.name = ss.str();
 
-    AnchorPoint newAnchorPoint(filename, lastOdomPosition);
+    pCloudRecorderTopic->publish(namedCloud);
+
+    AnchorPoint newAnchorPoint(namedCloud.name, lastOdomPosition);
 
     while(!anchorPointListMutex.try_lock()) {}
     anchorPointList.push_back(newAnchorPoint);
@@ -214,7 +220,7 @@ int main(int argc, char **argv)
     ros::Subscriber velTopic =
         n.subscribe(VEL_TOPIC, 1000, velocityCallback);
     tf::TransformListener tfListener;
-    ros::Publisher cloudRecorderTopic = n.advertise<sensor_msgs::PointCloud2>(CLOUD_RECORDER_TOPIC, 100);
+    ros::Publisher cloudRecorderTopic = n.advertise<husky_trainer::NamedPointCloud>(CLOUD_RECORDER_TOPIC, 100);
     pCloudRecorderTopic = &cloudRecorderTopic;
 
     std::ofstream positionRecord("positions.pl");

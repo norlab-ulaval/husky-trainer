@@ -2,7 +2,7 @@
 <package>
   <name>husky_trainer</name>
   <version>0.0.0</version>
-  <description>Teach and repeat implememted on a Clearpath Husky A200 using
+  <description>Teach and repeat implemented on a Clearpath Husky A200 using
   a point cloud.</description>
 
   <maintainer email="davidlandry93@gmail.com">David Landry</maintainer>

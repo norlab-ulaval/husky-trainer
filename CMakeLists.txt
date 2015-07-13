@@ -21,7 +21,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 add_message_files(
     FILES
     AnchorPointSwitch.msg
-    NamesPointCloud.msg
+    NamedPointCloud.msg
 )
 
 generate_messages(
