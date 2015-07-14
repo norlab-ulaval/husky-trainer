@@ -82,6 +82,7 @@ src/CommandRepeater.cpp
 src/GeoUtil.cpp
 src/PointMatching.cpp
 src/AnchorPoint.cpp
+src/Controller.cpp
 src/Repeat.cpp
 src/repeat_main.cpp
 )

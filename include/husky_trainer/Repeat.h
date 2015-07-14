@@ -26,7 +26,7 @@
 #include "husky_trainer/AnchorPoint.h"
 #include "husky_trainer/PointMatching.h"
 #include "husky_trainer/AnchorPointSwitch.h"
-#include "husky_trainer/controllerConfig.h"
+#include "husky_trainer/Controller.h"
 
 class Repeat {
 public:
@@ -36,7 +36,6 @@ public:
 
 private:
     enum Status { PLAY = 0, PAUSE, ERROR };
-    typedef boost::tuple<double, double, double> IcpError; // Ordered as follows: x, y, theta.
     typedef PointMatcher<float> PM;
     typedef PM::DataPoints DP;
 
@@ -70,9 +69,8 @@ private:
 
     // Variables.
     Status currentStatus;
-    IcpError currentError;
-    double lambdaX, lambdaY, lambdaTheta, lookahead;
-    double lpFilterTimeConst; // Low-pass filter time constant.
+    Controller controller;
+    double lookahead;
     std::string sourceTopicName;
     tf::StampedTransform tFromLidarToRobot;
     ros::Time baseSimTime;
@@ -94,7 +92,6 @@ private:
     ros::Publisher anchorPointSwitchTopic;
     ros::ServiceClient icpService;
     boost::mutex serviceCallLock;
-    dynamic_reconfigure::Server<husky_trainer::controllerConfig> drServer;
 
     // Functions.
     static void loadAnchorPoints(std::string filename, std::vector<AnchorPoint>& out);
@@ -102,7 +99,7 @@ private:
     static void loadPositions(std::string filename, std::vector<geometry_msgs::PoseStamped>& out);
     void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg);
     void joystickCallback(sensor_msgs::Joy::ConstPtr msg);
-    void controllerParametersCallback(husky_trainer::controllerConfig &params, uint32_t level);
+    void controllerParametersCallback(husky_trainer::ControllerConfig &params, uint32_t level);
 
     // Time management.
     void switchToStatus(Status desiredStatus);
@@ -113,8 +110,7 @@ private:
     void updateError(const sensor_msgs::PointCloud2& msg);
     geometry_msgs::Twist commandOfTime(ros::Time time);
     geometry_msgs::Pose poseOfTime(ros::Time time);
-    geometry_msgs::Twist errorAdjustedCommand(geometry_msgs::Twist command, IcpError error);
-    static void publishError(IcpError error, ros::Publisher topic);
+    static void publishError(Controller::IcpError error, ros::Publisher topic);
 };
 
 #endif

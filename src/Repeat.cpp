@@ -22,7 +22,7 @@ const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC = "/teach_repeat/desired_
 const double Repeat::LOOP_RATE = 100.0;
 const std::string Repeat::JOY_TOPIC = "/joy";
 const std::string Repeat::REFERENCE_POSE_TOPIC = "/teach_repeat/reference_pose";
-const std::string Repeat::ERROR_REPORTING_TOPIC = "/teach_repeat/reported_error";
+const std::string Repeat::ERROR_REPORTING_TOPIC = "/teach_repeat/raw_error";
 const std::string Repeat::AP_SWITCH_TOPIC = "/teach_repeat/ap_switch";
 const std::string Repeat::CLOUD_MATCHING_SERVICE = "/match_clouds";
 const std::string Repeat::LIDAR_FRAME = "/velodyne";
@@ -33,11 +33,6 @@ Repeat::Repeat(ros::NodeHandle n) :
     loopRate(LOOP_RATE)
 {
     std::string workingDirectory;
-
-    // Setup the dynamic reconfiguration server.
-    dynamic_reconfigure::Server<husky_trainer::controllerConfig>::CallbackType callback;
-    callback = boost::bind(&Repeat::controllerParametersCallback, this, _1, _2);
-    drServer.setCallback(callback);
 
     // Read parameters.
     n.param<std::string>(SOURCE_TOPIC_PARAM, sourceTopicName, DEFAULT_SOURCE_TOPIC);
@@ -55,7 +50,6 @@ Repeat::Repeat(ros::NodeHandle n) :
     ROS_INFO_STREAM("Done loading the teach in memory.");
 
     currentStatus = PAUSE;
-    currentError = IcpError(0.0,0.0,0.0);
     commandCursor = commands.begin();
     positionCursor = positions.begin();
     anchorPointCursor = anchorPoints.begin();
@@ -106,7 +100,8 @@ void Repeat::spin()
         //Update the command we are playing.
         if(currentStatus == PLAY)
         {
-            commandRepeaterTopic.publish(errorAdjustedCommand(commandOfTime(timeOfSpin), currentError));
+            geometry_msgs::Twist nextCommand = 
+                controller.correctCommand(commandOfTime(timeOfSpin));
         }
 
         referencePoseTopic.publish(poseOfTime(simTime()));
@@ -142,8 +137,9 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
     {
         if(icpService.call(pmMessage))
         {
-            currentError = pointmatching_tools::controlErrorOfTransformation(pmMessage.response.transform);
-            publishError(currentError, errorReportingTopic);
+            Controller::IcpError rawError = pointmatching_tools::controlErrorOfTransformation(pmMessage.response.transform);
+            controller.updateError(rawError);
+            publishError(rawError, errorReportingTopic);
         } else {
             ROS_WARN("There was a problem with the point matching service.");
             switchToStatus(ERROR);
@@ -152,17 +148,6 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
     } else {
         ROS_INFO("ICP service was busy, dropped a cloud.");
     }
-}
-
-geometry_msgs::Twist Repeat::errorAdjustedCommand(geometry_msgs::Twist originalCommand, IcpError error)
-{
-    float newAngular = originalCommand.angular.z + lambdaY * error.get<1>() - lambdaTheta * error.get<2>();
-    float newLinear = originalCommand.linear.x * cos(error.get<1>()) - lambdaX * error.get<0>();
-
-    originalCommand.angular.z = newAngular;
-    originalCommand.linear.x = newLinear;
-
-    return originalCommand;
 }
 
 void Repeat::cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
@@ -266,7 +251,7 @@ void Repeat::switchToStatus(Status desiredStatus)
     }
 }
 
-void Repeat::publishError(IcpError error, ros::Publisher topic)
+void Repeat::publishError(Controller::IcpError error, ros::Publisher topic)
 {
     std_msgs::Float32MultiArray msg;
 
@@ -339,12 +324,8 @@ void Repeat::loadAnchorPoints(const std::string filename, std::vector<AnchorPoin
 }
 
 void Repeat::controllerParametersCallback(
-        husky_trainer::controllerConfig &params, 
+        husky_trainer::ControllerConfig &params, 
         uint32_t level)
 {
     lookahead = params.lookahead;
-    lambdaX = params.lambda_x;
-    lambdaY = params.lambda_y;
-    lambdaTheta = params.lambda_t;
-    lpFilterTimeConst = params.lp_filter_time_const;    
 }
