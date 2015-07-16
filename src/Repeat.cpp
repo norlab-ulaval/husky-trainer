@@ -30,7 +30,7 @@ const std::string Repeat::ROBOT_FRAME = "/base_link";
 const std::string Repeat::WORLD_FRAME = "/odom";
 
 Repeat::Repeat(ros::NodeHandle n) :
-    loopRate(LOOP_RATE)
+    loopRate(LOOP_RATE), controller(n)
 {
     std::string workingDirectory;
 

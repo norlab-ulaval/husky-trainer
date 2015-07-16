@@ -3,9 +3,14 @@
 #include "husky_trainer/Controller.h"
 
 const double Controller::SAMPLING_PERIOD = 0.33;
+const std::string Controller::CORRECTED_ERROR_TOPIC = 
+    "/teach_repeat/corrected_error";
 
-Controller::Controller() : currentError(IcpError(0.0,0.0,0.0))
+Controller::Controller(ros::NodeHandle n) : currentError(IcpError(0.0,0.0,0.0))
 {
+    correctedErrorTopic = 
+        n.advertise<husky_trainer::TrajectoryError>(CORRECTED_ERROR_TOPIC, 100);
+
     // Setup the dynamic reconfiguration server.
     dynamic_reconfigure::Server<husky_trainer::ControllerConfig>::CallbackType callback;
     callback = boost::bind(&Controller::paramCallback, this, _1, _2);
@@ -20,7 +25,13 @@ geometry_msgs::Twist Controller::correctCommand(geometry_msgs::Twist command)
 void Controller::updateError(IcpError newError)
 {
     double filteredX = iir(currentError.get<0>(), newError.get<0>());
-    currentError = IcpError(filteredX, currentError.get<1>(), currentError.get<2>());
+    currentError = IcpError(filteredX, newError.get<1>(), newError.get<2>());
+
+    husky_trainer::TrajectoryError msg;
+    msg.x = filteredX;
+    msg.y = newError.get<1>();
+    msg.theta = newError.get<2>();
+    correctedErrorTopic.publish(msg);
 }
 
 geometry_msgs::Twist Controller::cutoff(geometry_msgs::Twist command)

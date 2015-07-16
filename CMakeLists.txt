@@ -23,6 +23,7 @@ add_message_files(
     FILES
     AnchorPointSwitch.msg
     NamedPointCloud.msg
+    TrajectoryError.msg
 )
 
 generate_messages(
