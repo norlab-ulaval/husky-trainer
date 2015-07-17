@@ -37,18 +37,10 @@ void Controller::updateError(IcpError newError)
 geometry_msgs::Twist Controller::cutoff(geometry_msgs::Twist command)
 {
     double newLinear = 
-        command.linear.x > maxLinearSpeed ? 
-            maxLinearSpeed : 
-            command.linear.x < minLinearSpeed ? 
-                minLinearSpeed : 
-                command.linear.x;
+        std::min(maxLinearSpeed, std::max(minLinearSpeed, command.linear.x));
 
     double newAngular = 
-        command.angular.z > maxAngularSpeed ? 
-            maxAngularSpeed :
-            command.angular.z < minAngularSpeed ?
-                minAngularSpeed:
-                command.angular.z;
+        std::min(maxAngularSpeed, std::max(minAngularSpeed, command.angular.z));
 
     geometry_msgs::Twist returnValue;
     returnValue.angular.z = newAngular;
