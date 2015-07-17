@@ -57,7 +57,7 @@ Repeat::Repeat(ros::NodeHandle n) :
     // Make the appropriate subscriptions.
     readingTopic = n.subscribe(sourceTopicName, 10, &Repeat::cloudCallback, this);
     joystickTopic = n.subscribe(JOY_TOPIC, 1000, &Repeat::joystickCallback, this);
-    errorReportingTopic = n.advertise<std_msgs::Float32MultiArray>(ERROR_REPORTING_TOPIC, 1000);
+    errorReportingTopic = n.advertise<husky_trainer::TrajectoryError>(ERROR_REPORTING_TOPIC, 1000);
     commandRepeaterTopic = n.advertise<geometry_msgs::Twist>(DEFAULT_COMMAND_OUTPUT_TOPIC, 1000);
     referencePoseTopic = n.advertise<geometry_msgs::Pose>(REFERENCE_POSE_TOPIC, 100);
     anchorPointSwitchTopic = n.advertise<husky_trainer::AnchorPointSwitch>(AP_SWITCH_TOPIC, 1000);
@@ -137,9 +137,12 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
     {
         if(icpService.call(pmMessage))
         {
-            Controller::IcpError rawError = pointmatching_tools::controlErrorOfTransformation(pmMessage.response.transform);
+            husky_trainer::TrajectoryError rawError = 
+                pointmatching_tools::controlErrorOfTransformation(
+                        pmMessage.response.transform
+                        );
             controller.updateError(rawError);
-            publishError(rawError, errorReportingTopic);
+            errorReportingTopic.publish(rawError);
         } else {
             ROS_WARN("There was a problem with the point matching service.");
             switchToStatus(ERROR);
@@ -249,21 +252,6 @@ void Repeat::switchToStatus(Status desiredStatus)
         }
         break;
     }
-}
-
-void Repeat::publishError(Controller::IcpError error, ros::Publisher topic)
-{
-    std_msgs::Float32MultiArray msg;
-
-    std_msgs::MultiArrayDimension dimension;
-    dimension.size = 1;
-
-    msg.data.clear();
-    msg.data.push_back(error.get<0>());
-    msg.data.push_back(error.get<1>());
-    msg.data.push_back(error.get<2>());
-
-    topic.publish(msg);
 }
 
 void Repeat::loadCommands(const std::string filename, std::vector<geometry_msgs::TwistStamped>& out)

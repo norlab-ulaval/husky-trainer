@@ -27,6 +27,7 @@
 #include "husky_trainer/PointMatching.h"
 #include "husky_trainer/AnchorPointSwitch.h"
 #include "husky_trainer/Controller.h"
+#include "husky_trainer/TrajectoryError.h"
 
 class Repeat {
 public:
@@ -110,7 +111,6 @@ private:
     void updateError(const sensor_msgs::PointCloud2& msg);
     geometry_msgs::Twist commandOfTime(ros::Time time);
     geometry_msgs::Pose poseOfTime(ros::Time time);
-    static void publishError(Controller::IcpError error, ros::Publisher topic);
 };
 
 #endif

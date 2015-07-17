@@ -12,18 +12,15 @@
 
 class Controller {
     public:
-        // IcpError is ordered as follows: x, y, theta.
-        typedef boost::tuple<double, double, double> IcpError; 
-
         Controller(ros::NodeHandle n);
         geometry_msgs::Twist correctCommand(geometry_msgs::Twist command);
-        void updateError(IcpError newError);
+        void updateError(husky_trainer::TrajectoryError newError);
 
     private:
         static const double SAMPLING_PERIOD;
         static const std::string CORRECTED_ERROR_TOPIC;
 
-        IcpError currentError;
+        husky_trainer::TrajectoryError currentError;
         double lambdaX, lambdaY, lambdaTheta;
         double lpFilterTimeConstant;
         double minLinearSpeed, maxLinearSpeed, minAngularSpeed, maxAngularSpeed;

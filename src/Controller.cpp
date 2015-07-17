@@ -6,8 +6,14 @@ const double Controller::SAMPLING_PERIOD = 0.33;
 const std::string Controller::CORRECTED_ERROR_TOPIC = 
     "/teach_repeat/corrected_error";
 
-Controller::Controller(ros::NodeHandle n) : currentError(IcpError(0.0,0.0,0.0))
+Controller::Controller(ros::NodeHandle n) 
 {
+    husky_trainer::TrajectoryError error;
+    error.x = 0.0;
+    error.y = 0.0;
+    error.theta = 0.0;
+    currentError = error;
+
     correctedErrorTopic = 
         n.advertise<husky_trainer::TrajectoryError>(CORRECTED_ERROR_TOPIC, 100);
 
@@ -22,16 +28,14 @@ geometry_msgs::Twist Controller::correctCommand(geometry_msgs::Twist command)
     return cutoff(proportionalGain(command));
 }
 
-void Controller::updateError(IcpError newError)
+void Controller::updateError(husky_trainer::TrajectoryError newError)
 {
-    double filteredX = iir(currentError.get<0>(), newError.get<0>());
-    currentError = IcpError(filteredX, newError.get<1>(), newError.get<2>());
+    double filteredX = iir(currentError.x, newError.x);
+    currentError.x = filteredX;
+    currentError.y = newError.y;
+    currentError.theta = newError.theta;
 
-    husky_trainer::TrajectoryError msg;
-    msg.x = filteredX;
-    msg.y = newError.get<1>();
-    msg.theta = newError.get<2>();
-    correctedErrorTopic.publish(msg);
+    correctedErrorTopic.publish(currentError);
 }
 
 geometry_msgs::Twist Controller::cutoff(geometry_msgs::Twist command)
@@ -58,11 +62,11 @@ geometry_msgs::Twist Controller::proportionalGain(geometry_msgs::Twist input)
 {
     float newAngular = 
         input.angular.z 
-        + lambdaY * currentError.get<1>() 
-        - lambdaTheta * currentError.get<2>();
+        + lambdaY * currentError.y
+        - lambdaTheta * currentError.theta;
     float newLinear = 
-        input.linear.x * cos(currentError.get<1>()) 
-        - lambdaX * currentError.get<0>();
+        input.linear.x * cos(currentError.y) 
+        - lambdaX * currentError.x;
 
     input.angular.z = newAngular;
     input.linear.x = newLinear;

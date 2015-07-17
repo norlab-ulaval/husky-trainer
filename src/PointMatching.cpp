@@ -20,10 +20,14 @@ bool validateTransformation(PM::TransformationParameters t)
 }
 
 // Go from a transformation between two point clouds to an error we can apply to the controller.
-ControlError controlErrorOfTransformation(geometry_msgs::Transform transformation)
+husky_trainer::TrajectoryError controlErrorOfTransformation(geometry_msgs::Transform transformation)
 {
-    return ControlError(transformation.translation.y, transformation.translation.x,
-                        geo_util::quatTo2dYaw(transformation.rotation));
+    husky_trainer::TrajectoryError error;
+    error.x = transformation.translation.y;
+    error.y = transformation.translation.x;
+    error.theta = geo_util::quatTo2dYaw(transformation.rotation);
+
+    return error;
 }
 
 sensor_msgs::PointCloud2 applyTransform(const sensor_msgs::PointCloud2& cloud,
