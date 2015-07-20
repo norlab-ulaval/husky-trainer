@@ -102,6 +102,7 @@ void Repeat::spin()
         {
             geometry_msgs::Twist nextCommand = 
                 controller.correctCommand(commandOfTime(timeOfSpin));
+            commandRepeaterTopic.publish(nextCommand);
         }
 
         referencePoseTopic.publish(poseOfTime(simTime()));

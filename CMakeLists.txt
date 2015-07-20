@@ -75,6 +75,7 @@ src/PointMatching.cpp
 src/AnchorPoint.cpp
 src/teach.cpp
 )
+add_dependencies(teach husky_trainer_generate_messages_cpp)
 
 add_executable(
 repeat
@@ -87,6 +88,7 @@ src/Controller.cpp
 src/Repeat.cpp
 src/repeat_main.cpp
 )
+add_dependencies(repeat husky_trainer_generate_messages_cpp)
 
 add_executable(
 command_repeater

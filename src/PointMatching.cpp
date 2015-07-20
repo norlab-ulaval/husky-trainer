@@ -20,6 +20,8 @@ bool validateTransformation(PM::TransformationParameters t)
 }
 
 // Go from a transformation between two point clouds to an error we can apply to the controller.
+// The axis convention in libpointmatcher is different than the one throughout
+// the husky, which is why x is mapped to y and vice versa.
 husky_trainer::TrajectoryError controlErrorOfTransformation(geometry_msgs::Transform transformation)
 {
     husky_trainer::TrajectoryError error;

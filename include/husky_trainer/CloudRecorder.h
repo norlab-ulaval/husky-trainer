@@ -15,7 +15,6 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <pointcloud_tools/CloudRecorder.h>
 
 #include "husky_trainer/NamedPointCloud.h"
 
