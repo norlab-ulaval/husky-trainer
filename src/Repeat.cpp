@@ -197,7 +197,8 @@ geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
 {
     std::vector<geometry_msgs::PoseStamped>::iterator previousCursor = positionCursor;
 
-    while(positionCursor->header.stamp < time && positionCursor < positions.end() - 1)
+    while(positionCursor->header.stamp < time + ros::Duration(lookahead) && 
+            positionCursor < positions.end() - 1)
     {
         previousCursor = positionCursor++;
     }
