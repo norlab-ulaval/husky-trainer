@@ -28,6 +28,7 @@
 #include "husky_trainer/AnchorPointSwitch.h"
 #include "husky_trainer/Controller.h"
 #include "husky_trainer/TrajectoryError.h"
+#include "husky_trainer/RepeatConfig.h"
 
 class Repeat {
 public:
@@ -41,19 +42,11 @@ private:
     typedef PM::DataPoints DP;
 
     // Parameter names.
-    static const std::string LAMBDA_X_PARAM;
-    static const std::string LAMBDA_Y_PARAM;
-    static const std::string LAMBDA_THETA_PARAM;
-    static const std::string LOOKAHEAD_PARAM;
     static const std::string SOURCE_TOPIC_PARAM;
     static const std::string COMMAND_OUTPUT_PARAM;
     static const std::string WORKING_DIRECTORY_PARAM;
 
     // Default values.
-    static const double DEFAULT_LAMBDA_X;
-    static const double DEFAULT_LAMBDA_Y;
-    static const double DEFAULT_LAMBDA_THETA;
-    static const double DEFAULT_LOOKAHEAD;
     static const std::string DEFAULT_SOURCE_TOPIC;
     static const std::string DEFAULT_COMMAND_OUTPUT_TOPIC;
 
@@ -77,6 +70,7 @@ private:
     ros::Time baseSimTime;
     ros::Time timePlaybackStarted;
     ros::Rate loopRate;
+    dynamic_reconfigure::Server<husky_trainer::RepeatConfig> drServer;
 
     std::vector<AnchorPoint> anchorPoints;
     std::vector<geometry_msgs::PoseStamped> positions;
@@ -100,7 +94,6 @@ private:
     static void loadPositions(std::string filename, std::vector<geometry_msgs::PoseStamped>& out);
     void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg);
     void joystickCallback(sensor_msgs::Joy::ConstPtr msg);
-    void controllerParametersCallback(husky_trainer::ControllerConfig &params, uint32_t level);
 
     // Time management.
     void switchToStatus(Status desiredStatus);
@@ -111,6 +104,9 @@ private:
     void updateError(const sensor_msgs::PointCloud2& msg);
     geometry_msgs::Twist commandOfTime(ros::Time time);
     geometry_msgs::Pose poseOfTime(ros::Time time);
+
+    // Dynamic reconfigure.
+    void paramCallback(husky_trainer::RepeatConfig &params, uint32_t level);
 };
 
 #endif

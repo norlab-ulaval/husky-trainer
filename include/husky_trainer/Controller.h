@@ -6,7 +6,7 @@
 #include <geometry_msgs/Twist.h>
 #include <dynamic_reconfigure/server.h>
 
-#include "husky_trainer/ControllerConfig.h"
+#include "husky_trainer/RepeatConfig.h"
 #include "husky_trainer/TrajectoryError.h"
 
 
@@ -15,6 +15,7 @@ class Controller {
         Controller(ros::NodeHandle n);
         geometry_msgs::Twist correctCommand(geometry_msgs::Twist command);
         void updateError(husky_trainer::TrajectoryError newError);
+        void updateParams(husky_trainer::RepeatConfig& params);
 
     private:
         static const double SAMPLING_PERIOD;
@@ -24,11 +25,8 @@ class Controller {
         double lambdaX, lambdaY, lambdaTheta;
         double lpFilterTimeConstant;
         double minLinearSpeed, maxLinearSpeed, minAngularSpeed, maxAngularSpeed;
-        dynamic_reconfigure::Server<husky_trainer::ControllerConfig> drServer;
 
         ros::Publisher correctedErrorTopic;
-
-        void paramCallback(husky_trainer::ControllerConfig &params, uint32_t level);
 
         geometry_msgs::Twist cutoff(geometry_msgs::Twist command);
         double iir(double old, double input);

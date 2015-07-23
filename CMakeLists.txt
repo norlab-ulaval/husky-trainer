@@ -32,7 +32,9 @@ generate_messages(
     sensor_msgs
 )
 
-generate_dynamic_reconfigure_options(cfg/controller_params.cfg)
+generate_dynamic_reconfigure_options(
+    cfg/repeat_params.cfg
+)
 
 catkin_package(
  INCLUDE_DIRS include
