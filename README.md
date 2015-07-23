@@ -45,6 +45,31 @@ $ roslaunch husky_trainer husky-repeat.launch icp_config:=/abs/path/to/conf.yaml
 For the repeat phase, the RB button acts as a deadman switch. Hold it to start
 the playback.
 
+#### Dynamic reconfigure
+
+`dynamic reconfigure` can be used to set some parameters during the repeat. They
+mostly influence the error correction controller. To launch a dynamic
+reconfigure interface, make sure that the repeat node is launched, then type in
+this command. 
+
+```Shell
+$ rosrun dynamic_reconfigure dynamic_reconfigure
+```
+
+You can now play with the parameters.
+
+##### Parameters
+
+- `lx`. This is the gain value applied to the error in the `x` axis (the front
+  of the robot). 
+- `ly`. Same thing, but for the `y` axis, which is pointing towards the right
+  side of the robot. 
+- `lt`. Same thing, but the gain is applied to the angular error, in the
+  trigonometrical convention. 
+- `lookahead`. Many controllers will compute the error according to the position
+  the robot should be in x miliseconds from now instead of the actual position.
+  This parameter is used to specify the lookahead, in seconds.
+
 ## Nodes
 
 This section documents the individual nodes, in case you want to play
@@ -63,6 +88,8 @@ was used for testing.
   meant to avoid recording a bunch of clouds when the robot is not moving. If
   set to 0, all the incoming point clouds will be recorded as anchor points.
   Default: 0.1 m.
+- `ap_angle`. How much the robot has to rotate before we record a new anchor
+  point. Default: 0.1 rad.
 
 ### repeat
 
@@ -71,15 +98,6 @@ the scanned point clouds.
 
 #### Parameters
 
-- `lx`. This is the gain value applied to the error in the `x` axis (the front
-  of the robot). Default: 0.0.
-- `ly`. Same thing, but for the `y` axis, which is pointing towards the right
-  side of the robot. Default: 0.0.
-- `lt`. Same thing, but the gain is applied to the angular error, in the
-  trigonometrical convention. Default: 0.0.
-- `lookahead`. Many controllers will compute the error according to the position
-  the robot should be in x miliseconds from now instead of the actual position. This
-  parameter is used to specify the lookahead, in seconds. Default: 0.2.
 - `readings_topic`. Used to specify what topic the node should use to get clouds
   and compare them to the anchor points. Default: `/cloud`.
 - `working_directory`. Is used to specify a working directory different that the

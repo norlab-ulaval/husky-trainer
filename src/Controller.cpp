@@ -16,11 +16,6 @@ Controller::Controller(ros::NodeHandle n)
 
     correctedErrorTopic = 
         n.advertise<husky_trainer::TrajectoryError>(CORRECTED_ERROR_TOPIC, 100);
-
-    // Setup the dynamic reconfiguration server.
-    dynamic_reconfigure::Server<husky_trainer::ControllerConfig>::CallbackType callback;
-    callback = boost::bind(&Controller::paramCallback, this, _1, _2);
-    drServer.setCallback(callback);
 }
         
 geometry_msgs::Twist Controller::correctCommand(geometry_msgs::Twist command)
@@ -74,7 +69,7 @@ geometry_msgs::Twist Controller::proportionalGain(geometry_msgs::Twist input)
     return input;
 }
 
-void Controller::paramCallback(husky_trainer::ControllerConfig &params, uint32_t level)
+void Controller::updateParams(husky_trainer::RepeatConfig &params)
 {
     lambdaX = params.lambda_x;
     lambdaY = params.lambda_y; 

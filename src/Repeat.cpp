@@ -68,6 +68,11 @@ Repeat::Repeat(ros::NodeHandle n) :
     tf::TransformListener tfListener;
     tfListener.waitForTransform(ROBOT_FRAME, LIDAR_FRAME, ros::Time(0), ros::Duration(5.0));
     tfListener.lookupTransform(ROBOT_FRAME, LIDAR_FRAME, ros::Time(0), tFromLidarToRobot);
+
+    // Setup the dynamic reconfiguration server.
+    dynamic_reconfigure::Server<husky_trainer::RepeatConfig>::CallbackType callback;
+    callback = boost::bind(&Repeat::paramCallback, this, _1, _2);
+    drServer.setCallback(callback);
 }
 
 void Repeat::spin()
@@ -179,7 +184,8 @@ geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
 {
     std::vector<geometry_msgs::TwistStamped>::iterator previousCursor = commandCursor;
 
-    while(commandCursor->header.stamp < time && commandCursor < commands.end() - 1)
+    while(commandCursor->header.stamp < time + ros::Duration(lookahead) && 
+            commandCursor < commands.end() - 1) 
     {
         previousCursor = commandCursor++;
     }
@@ -312,9 +318,8 @@ void Repeat::loadAnchorPoints(const std::string filename, std::vector<AnchorPoin
     }
 }
 
-void Repeat::controllerParametersCallback(
-        husky_trainer::ControllerConfig &params, 
-        uint32_t level)
+void Repeat::paramCallback(husky_trainer::RepeatConfig& params, uint32_t level)
 {
     lookahead = params.lookahead;
+    controller.updateParams(params);
 }
