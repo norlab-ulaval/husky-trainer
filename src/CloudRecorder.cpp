@@ -44,7 +44,7 @@ CloudRecorder::CloudRecorder(ros::NodeHandle n)
     if(n.getParam(DEST_TOPIC_PARAM, publisherTopicName))
     {
         republish = true;
-        publisherTopic = n.advertise<sensor_msgs::PointCloud2>(publisherTopicName, 100);
+        publisherTopic = n.advertise<sensor_msgs::PointCloud2>(publisherTopicName, 1000);
     }
 
     n.param<std::string>(TARGET_FRAME_PARAM, targetFrame, "");
