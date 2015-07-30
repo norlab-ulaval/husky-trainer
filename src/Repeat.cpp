@@ -17,7 +17,8 @@ const std::string Repeat::WORKING_DIRECTORY_PARAM = "working_directory";
 
 // Default values.
 const std::string Repeat::DEFAULT_SOURCE_TOPIC = "/cloud";
-const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC = "/teach_repeat/desired_command";
+const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC = 
+        "/teach_repeat/desired_command";
 
 const double Repeat::LOOP_RATE = 100.0;
 const std::string Repeat::JOY_TOPIC = "/joy";
@@ -77,7 +78,7 @@ Repeat::Repeat(ros::NodeHandle n) :
 
 void Repeat::spin()
 {
-    while(ros::ok() && commandCursor < commands.end() - 1)
+    while(ros::ok()) 
     {
         ros::Time timeOfSpin = simTime();
 
@@ -103,7 +104,7 @@ void Repeat::spin()
         }
 
         //Update the command we are playing.
-        if(currentStatus == PLAY)
+        if(currentStatus == FORWARD || currentStatus == REWIND)
         {
             geometry_msgs::Twist nextCommand = 
                 controller.correctCommand(commandOfTime(timeOfSpin));
@@ -155,7 +156,7 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
         }
         serviceCallLock.unlock();
     } else {
-        ROS_INFO("ICP service was busy, dropped a cloud.");
+        ROS_DEBUG("ICP service was busy, dropped a cloud.");
     }
 }
 
@@ -168,11 +169,18 @@ void Repeat::joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 {
     switch(currentStatus)
     {
-    case PLAY:
+    case FORWARD:
         if(msg->buttons[controller_mappings::RB] == 0) switchToStatus(PAUSE);
         break;
+    case REWIND:
+        if(msg->buttons[controller_mappings::RT] == 0) switchToStatus(PAUSE);
+        break;
     case PAUSE:
-        if(msg->buttons[controller_mappings::RB] == 1) switchToStatus(PLAY);
+        if(msg->buttons[controller_mappings::RB] == 1) {
+            switchToStatus(FORWARD);
+        } else if(msg->buttons[controller_mappings::RT] == 1) {
+            switchToStatus(REWIND);
+        }
         break;
     case ERROR:
         if(msg->buttons[controller_mappings::X] == 1) switchToStatus(PAUSE);
@@ -183,26 +191,45 @@ void Repeat::joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
 {
     std::vector<geometry_msgs::TwistStamped>::iterator previousCursor = commandCursor;
+    geometry_msgs::Twist output;
 
-    while(commandCursor->header.stamp < time + ros::Duration(lookahead) && 
-            commandCursor < commands.end() - 1) 
-    {
-        previousCursor = commandCursor++;
+    if(currentStatus == FORWARD) {
+        while(commandCursor->header.stamp < time + ros::Duration(lookahead) && 
+                commandCursor < commands.end() - 1) 
+        {
+            previousCursor = commandCursor++;
+        }
+
+        output = commandCursor->twist;
+    } else if (currentStatus == REWIND) {
+        while(commandCursor->header.stamp >= time - ros::Duration(lookahead) &&
+                commandCursor >= commands.begin()) {
+            previousCursor = commandCursor--;
+        }
+
+        output = reverseCommand(commandCursor->twist);
+    } else {
+        output = CommandRepeater::idleTwistCommand();
     }
-
-    return commandCursor->twist;
+    ROS_INFO_STREAM("CommandOfTime: " << output.linear.x);
+    return output;
 }
 
 geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
 {
     std::vector<geometry_msgs::PoseStamped>::iterator previousCursor = positionCursor;
 
-    while(positionCursor->header.stamp < time + ros::Duration(lookahead) && 
-            positionCursor < positions.end() - 1)
-    {
-        previousCursor = positionCursor++;
+    if(currentStatus == FORWARD) {
+        while(positionCursor->header.stamp < time + ros::Duration(lookahead) && 
+                positionCursor < positions.end() - 1) {
+            previousCursor = positionCursor++;
+        }
+    } else if (currentStatus == REWIND) {
+        while(positionCursor->header.stamp >= time - ros::Duration(lookahead) && 
+                positionCursor >= positions.begin()) {
+            previousCursor = positionCursor--;
+        }
     }
-
     return positionCursor->pose;
 }
 
@@ -220,9 +247,13 @@ void Repeat::startPlayback()
 
 ros::Time Repeat::simTime()
 {
-    if(currentStatus == PLAY) return baseSimTime + (ros::Time::now() - timePlaybackStarted);
-    else return baseSimTime;
-
+    if(currentStatus == FORWARD) {
+        return baseSimTime + (ros::Time::now() - timePlaybackStarted);
+    } else if (currentStatus == REWIND)  {
+        return baseSimTime - (ros::Time::now() - timePlaybackStarted);
+    } else {
+        return baseSimTime;
+    }
 }
 
 void Repeat::switchToStatus(Status desiredStatus)
@@ -236,7 +267,7 @@ void Repeat::switchToStatus(Status desiredStatus)
 
     switch(currentStatus)
     {
-    case PLAY:
+    case FORWARD:
         if(desiredStatus == PAUSE)
         {
             ROS_INFO("Stopping playback.");
@@ -244,14 +275,25 @@ void Repeat::switchToStatus(Status desiredStatus)
             currentStatus = PAUSE;
         }
         break;
+
+    case REWIND:
+        if(desiredStatus == PAUSE)
+        {
+            ROS_INFO("Stopping playback.");
+            pausePlayback();
+            currentStatus = PAUSE;
+        }
+        break;
+
     case PAUSE:
-        if(desiredStatus == PLAY)
+        if(desiredStatus == FORWARD || desiredStatus == REWIND)
         {
             ROS_INFO("Starting playback.");
             startPlayback();
-            currentStatus = PLAY;
+            currentStatus = desiredStatus;
         }
         break;
+
     case ERROR:
         if(desiredStatus == PAUSE)
         {
@@ -321,6 +363,15 @@ void Repeat::loadAnchorPoints(const std::string filename, std::vector<AnchorPoin
 
 void Repeat::paramCallback(husky_trainer::RepeatConfig& params, uint32_t level)
 {
-    lookahead = params.lookahead;
+    lookahead = ros::Duration(params.lookahead);
     controller.updateParams(params);
+}
+    
+geometry_msgs::Twist Repeat::reverseCommand(geometry_msgs::Twist input)
+{
+    geometry_msgs::Twist output;
+    output.linear.x = -1.0 * input.linear.x;
+    output.angular.z = -1.0 * input.angular.z;
+
+    return output;
 }

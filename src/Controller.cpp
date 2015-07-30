@@ -1,5 +1,5 @@
 
-#include "husky_trainer/ControllerConfig.h"
+#include "husky_trainer/RepeatConfig.h"
 #include "husky_trainer/Controller.h"
 
 const double Controller::SAMPLING_PERIOD = 0.33;

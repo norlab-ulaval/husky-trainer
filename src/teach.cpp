@@ -125,8 +125,8 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 {
-    ROS_INFO("Travel: %f", fabs(lastTravelRecorded - travelOfLastAnchor));
-    ROS_INFO("Angle diff: %f", fabs(lastYawRecorded - yawOfLastAnchor));
+    ROS_DEBUG("Travel: %f", fabs(lastTravelRecorded - travelOfLastAnchor));
+    ROS_DEBUG("Angle diff: %f", fabs(lastYawRecorded - yawOfLastAnchor));
 
     if(teachingStartTime != ros::Time(0))
     {
@@ -140,15 +140,15 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
             travelOfLastAnchor = lastTravelRecorded;
             yawOfLastAnchor = lastYawRecorded;
 
-            ROS_INFO("Saving a new anchor point");
+            ROS_DEBUG("Saving a new anchor point");
 
             boost::thread cloudRecordingThread(recordCloud, *msg);
 
-            ROS_INFO("The cloud callback took: %lf", (ros::Time::now() - startTime).toSec());
+            ROS_DEBUG("The cloud callback took: %lf", (ros::Time::now() - startTime).toSec());
         }
         else
         {
-            ROS_INFO("Got a cloud too close to the last anchor point. Ignored it.");
+            ROS_DEBUG("Got a cloud too close to the last anchor point. Ignored it.");
         }
     }
 }
@@ -220,7 +220,8 @@ int main(int argc, char **argv)
     ros::Subscriber velTopic =
         n.subscribe(VEL_TOPIC, 1000, velocityCallback);
     tf::TransformListener tfListener;
-    ros::Publisher cloudRecorderTopic = n.advertise<husky_trainer::NamedPointCloud>(CLOUD_RECORDER_TOPIC, 100);
+    ros::Publisher cloudRecorderTopic = 
+        n.advertise<husky_trainer::NamedPointCloud>(CLOUD_RECORDER_TOPIC, 100);
     pCloudRecorderTopic = &cloudRecorderTopic;
 
     std::ofstream positionRecord("positions.pl");
@@ -250,6 +251,8 @@ int main(int argc, char **argv)
     positionRecord.close();
     speedRecord.close();
     saveAnchorPointList(anchorPointList);
+
+    ROS_INFO_STREAM("Recorded " << anchorPointList.size() << " anchor points.");
 
     return 0;
 }

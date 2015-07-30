@@ -37,7 +37,7 @@ public:
     void spin();
 
 private:
-    enum Status { PLAY = 0, PAUSE, ERROR };
+    enum Status { FORWARD = 0, REWIND, PAUSE, ERROR };
     typedef PointMatcher<float> PM;
     typedef PM::DataPoints DP;
 
@@ -64,7 +64,7 @@ private:
     // Variables.
     Status currentStatus;
     Controller controller;
-    double lookahead;
+    ros::Duration lookahead;
     std::string sourceTopicName;
     tf::StampedTransform tFromLidarToRobot;
     ros::Time baseSimTime;
@@ -103,7 +103,9 @@ private:
 
     void updateError(const sensor_msgs::PointCloud2& msg);
     geometry_msgs::Twist commandOfTime(ros::Time time);
+    static geometry_msgs::Twist reverseCommand(geometry_msgs::Twist input);
     geometry_msgs::Pose poseOfTime(ros::Time time);
+    
 
     // Dynamic reconfigure.
     void paramCallback(husky_trainer::RepeatConfig &params, uint32_t level);
