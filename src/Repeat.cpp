@@ -17,7 +17,7 @@ const std::string Repeat::WORKING_DIRECTORY_PARAM = "working_directory";
 
 // Default values.
 const std::string Repeat::DEFAULT_SOURCE_TOPIC = "/cloud";
-const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC = 
+const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC =
         "/teach_repeat/desired_command";
 
 const double Repeat::LOOP_RATE = 100.0;
@@ -78,7 +78,7 @@ Repeat::Repeat(ros::NodeHandle n) :
 
 void Repeat::spin()
 {
-    while(ros::ok()) 
+    while(ros::ok())
     {
         ros::Time timeOfSpin = simTime();
         updateAnchorPoint();
@@ -86,7 +86,7 @@ void Repeat::spin()
         //Update the command we are playing.
         if(currentStatus == FORWARD || currentStatus == REWIND)
         {
-            geometry_msgs::Twist nextCommand = 
+            geometry_msgs::Twist nextCommand =
                 controller.correctCommand(commandOfTime(timeOfSpin));
             commandRepeaterTopic.publish(nextCommand);
         }
@@ -115,14 +115,14 @@ void Repeat::updateAnchorPoint()
 
     double distanceToNextAnchorPoint;
     if(currentStatus == FORWARD) {
-        distanceToNextAnchorPoint = 
-            anchorPointCursor != anchorPoints.end() - 1 ? 
+        distanceToNextAnchorPoint =
+            anchorPointCursor != anchorPoints.end() - 1 ?
             geo_util::customDistance(
-                poseOfTime(timeOfUpdate), 
+                poseOfTime(timeOfUpdate),
                 anchorPointCursor->getPosition()) :
             std::numeric_limits<double>::infinity();
     } else if (currentStatus == REWIND) {
-        distanceToNextAnchorPoint = 
+        distanceToNextAnchorPoint =
             anchorPointCursor != anchorPoints.begin() ?
             geo_util::customDistance(
                 poseOfTime(timeOfUpdate),
@@ -168,11 +168,11 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
     {
         if(icpService.call(pmMessage))
         {
-            husky_trainer::TrajectoryError rawError = 
+            husky_trainer::TrajectoryError rawError =
                 pointmatching_tools::controlErrorOfTransformation(
                         pmMessage.response.transform
-                        );
-            
+                    );
+
             errorReportingTopic.publish(rawError);
             controller.updateError(rawError);
         } else {
@@ -218,14 +218,16 @@ geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
     geometry_msgs::Twist output;
 
     if(currentStatus == FORWARD) {
-        while(commandCursor->header.stamp < time + ros::Duration(lookahead) && 
+        while(commandCursor->header.stamp < time + ros::Duration(lookahead) &&
                 commandCursor < commands.end() - 1) {
            commandCursor++;
         }
 
         output = commandCursor->twist;
     } else if (currentStatus == REWIND) {
-        while(commandCursor->header.stamp >= time - ros::Duration(lookahead) &&
+        ros::Time lookaheadAdjustedTime = trySubstract(ros::Duration(lookahead), time);
+
+        while(commandCursor->header.stamp >= lookaheadAdjustedTime &&
                 commandCursor > commands.begin()) {
             commandCursor--;
         }
@@ -240,12 +242,12 @@ geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
 geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
 {
     if(currentStatus == FORWARD) {
-        while(positionCursor->header.stamp < time + ros::Duration(lookahead) && 
+        while(positionCursor->header.stamp < time + ros::Duration(lookahead) &&
                 positionCursor < positions.end() - 1) {
             positionCursor++;
         }
     } else if (currentStatus == REWIND) {
-        while(positionCursor->header.stamp >= time - ros::Duration(lookahead) && 
+        while(positionCursor->header.stamp >= trySubstract(ros::Duration(lookahead), time)&&
                 positionCursor > positions.begin()) {
             positionCursor--;
         }
@@ -260,7 +262,9 @@ void Repeat::pausePlayback()
     if(currentStatus == FORWARD) {
         baseSimTime += ros::Time::now() - timePlaybackStarted;
     } else if (currentStatus == REWIND) {
-        baseSimTime -= ros::Time::now() - timePlaybackStarted;
+        ros::Duration delta = ros::Time::now() - timePlaybackStarted;
+
+        baseSimTime = trySubstract(delta, baseSimTime);
     }
 
     ROS_INFO("Paused at: %lf", baseSimTime.toSec());
@@ -273,13 +277,21 @@ void Repeat::startPlayback()
 
 ros::Time Repeat::simTime()
 {
+    ros::Time simTime;
+    ros::Duration delta = ros::Time::now() - timePlaybackStarted;
+
     if(currentStatus == FORWARD) {
-        return baseSimTime + (ros::Time::now() - timePlaybackStarted);
+        simTime = baseSimTime + delta;
     } else if (currentStatus == REWIND)  {
-        return baseSimTime - (ros::Time::now() - timePlaybackStarted);
+        // We can't compare a Duration to a Time, and it seems risky to ever
+        // create a negative Time, so we add the delta to ros::Time(0) to
+        // compare it with baseSimTime.
+        simTime = trySubstract(delta, baseSimTime);
     } else {
-        return baseSimTime;
+        simTime = baseSimTime;
     }
+
+    return simTime;
 }
 
 void Repeat::switchToStatus(Status desiredStatus)
@@ -392,7 +404,7 @@ void Repeat::paramCallback(husky_trainer::RepeatConfig& params, uint32_t level)
     lookahead = ros::Duration(params.lookahead);
     controller.updateParams(params);
 }
-    
+
 geometry_msgs::Twist Repeat::reverseCommand(geometry_msgs::Twist input)
 {
     geometry_msgs::Twist output;
@@ -400,4 +412,12 @@ geometry_msgs::Twist Repeat::reverseCommand(geometry_msgs::Twist input)
     output.angular.z = -1.0 * input.angular.z;
 
     return output;
+}
+
+// Try to substract a value from a time without going into negative times.
+ros::Time Repeat::trySubstract(ros::Duration value, ros::Time from)
+{
+    return ros::Time(0.0) + value < from ?
+                from - value:
+                ros::Time(0.0);
 }
