@@ -3,6 +3,8 @@
 #include <fstream>
 #include <vector>
 #include <boost/iterator.hpp>
+#include <boost/fusion/iterator/next.hpp>
+#include <boost/fusion/iterator/prior.hpp>
 #include <pcl_ros/transforms.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <std_msgs/Float32MultiArray.h>
@@ -108,25 +110,25 @@ Repeat::~Repeat()
 
 void Repeat::updateAnchorPoint()
 {
-    ros::Time timeOfUpdate = simTime();
+    geometry_msgs::Pose currentPose = poseOfTime(simTime());
 
     double distanceToCurrentAnchorPoint =
-            geo_util::customDistance(poseOfTime(timeOfUpdate), anchorPointCursor->getPosition());
+            geo_util::customDistance(currentPose, anchorPointCursor->getPosition());
 
     double distanceToNextAnchorPoint;
     if(currentStatus == FORWARD) {
         distanceToNextAnchorPoint =
             anchorPointCursor != anchorPoints.end() - 1 ?
             geo_util::customDistance(
-                poseOfTime(timeOfUpdate),
-                anchorPointCursor->getPosition()) :
+                currentPose,
+                boost::next(anchorPointCursor)->getPosition()) :
             std::numeric_limits<double>::infinity();
     } else if (currentStatus == REWIND) {
         distanceToNextAnchorPoint =
             anchorPointCursor != anchorPoints.begin() ?
             geo_util::customDistance(
-                poseOfTime(timeOfUpdate),
-                anchorPointCursor->getPosition()) :
+                currentPose,
+                boost::prior(anchorPointCursor)->getPosition()) :
             std::numeric_limits<double>::infinity();
     } else {
         distanceToNextAnchorPoint = std::numeric_limits<double>::infinity();
@@ -134,13 +136,15 @@ void Repeat::updateAnchorPoint()
 
     //ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
 
-    // Update the closest anchor point.
-    if(boost::next(anchorPointCursor) < anchorPoints.end() &&
-        distanceToCurrentAnchorPoint >= distanceToNextAnchorPoint)
+    if(distanceToCurrentAnchorPoint >= distanceToNextAnchorPoint)
     {
         if (currentStatus == FORWARD) anchorPointCursor++;
         else if (currentStatus == REWIND) anchorPointCursor--;
         else ROS_ERROR("Invalid status when updating anchor point");
+
+        ROS_INFO_STREAM(
+                "Switched to anchor point: " << anchorPointCursor->name()
+            );
 
         husky_trainer::AnchorPointSwitch msg;
         msg.stamp = ros::Time::now();
