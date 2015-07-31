@@ -81,27 +81,7 @@ void Repeat::spin()
     while(ros::ok()) 
     {
         ros::Time timeOfSpin = simTime();
-
-        double distanceToCurrentAnchorPoint =
-                geo_util::customDistance(poseOfTime(timeOfSpin), anchorPointCursor->getPosition());
-
-        double distanceToNextAnchorPoint = (boost::next(anchorPointCursor) != anchorPoints.end()) ? 
-                geo_util::customDistance(poseOfTime(timeOfSpin), boost::next(anchorPointCursor)->getPosition()) :
-                std::numeric_limits<double>::infinity();
-
-        //ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
-
-        // Update the closest anchor point.
-        if(boost::next(anchorPointCursor) < anchorPoints.end() &&
-           distanceToCurrentAnchorPoint >= distanceToNextAnchorPoint)
-        {
-            anchorPointCursor++;
-
-            husky_trainer::AnchorPointSwitch msg;
-            msg.stamp = ros::Time::now();
-            msg.newAnchorPoint = anchorPointCursor->name();
-            anchorPointSwitchTopic.publish(msg);
-        }
+        updateAnchorPoint();
 
         //Update the command we are playing.
         if(currentStatus == FORWARD || currentStatus == REWIND)
@@ -123,6 +103,50 @@ Repeat::~Repeat()
     readingTopic.shutdown();
     serviceCallLock.lock();
     serviceCallLock.unlock();
+}
+
+
+void Repeat::updateAnchorPoint()
+{
+    ros::Time timeOfUpdate = simTime();
+
+    double distanceToCurrentAnchorPoint =
+            geo_util::customDistance(poseOfTime(timeOfUpdate), anchorPointCursor->getPosition());
+
+    double distanceToNextAnchorPoint;
+    if(currentStatus == FORWARD) {
+        distanceToNextAnchorPoint = 
+            anchorPointCursor != anchorPoints.end() - 1 ? 
+            geo_util::customDistance(
+                poseOfTime(timeOfUpdate), 
+                anchorPointCursor->getPosition()) :
+            std::numeric_limits<double>::infinity();
+    } else if (currentStatus == REWIND) {
+        distanceToNextAnchorPoint = 
+            anchorPointCursor != anchorPoints.begin() ?
+            geo_util::customDistance(
+                poseOfTime(timeOfUpdate),
+                anchorPointCursor->getPosition()) :
+            std::numeric_limits<double>::infinity();
+    } else {
+        distanceToNextAnchorPoint = std::numeric_limits<double>::infinity();
+    }
+
+    //ROS_INFO("Distances. Current: %f, Next: %f", distanceToCurrentAnchorPoint, distanceToNextAnchorPoint);
+
+    // Update the closest anchor point.
+    if(boost::next(anchorPointCursor) < anchorPoints.end() &&
+        distanceToCurrentAnchorPoint >= distanceToNextAnchorPoint)
+    {
+        if (currentStatus == FORWARD) anchorPointCursor++;
+        else if (currentStatus == REWIND) anchorPointCursor--;
+        else ROS_ERROR("Invalid status when updating anchor point");
+
+        husky_trainer::AnchorPointSwitch msg;
+        msg.stamp = ros::Time::now();
+        msg.newAnchorPoint = anchorPointCursor->name();
+        anchorPointSwitchTopic.publish(msg);
+    }
 }
 
 void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
@@ -148,8 +172,9 @@ void Repeat::updateError(const sensor_msgs::PointCloud2& reading)
                 pointmatching_tools::controlErrorOfTransformation(
                         pmMessage.response.transform
                         );
-            controller.updateError(rawError);
+            
             errorReportingTopic.publish(rawError);
+            controller.updateError(rawError);
         } else {
             ROS_WARN("There was a problem with the point matching service.");
             switchToStatus(ERROR);
@@ -190,44 +215,39 @@ void Repeat::joystickCallback(sensor_msgs::Joy::ConstPtr msg)
 
 geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
 {
-    std::vector<geometry_msgs::TwistStamped>::iterator previousCursor = commandCursor;
     geometry_msgs::Twist output;
 
     if(currentStatus == FORWARD) {
         while(commandCursor->header.stamp < time + ros::Duration(lookahead) && 
-                commandCursor < commands.end() - 1) 
-        {
-            previousCursor = commandCursor++;
+                commandCursor < commands.end() - 1) {
+           commandCursor++;
         }
 
         output = commandCursor->twist;
     } else if (currentStatus == REWIND) {
         while(commandCursor->header.stamp >= time - ros::Duration(lookahead) &&
-                commandCursor >= commands.begin()) {
-            previousCursor = commandCursor--;
+                commandCursor > commands.begin()) {
+            commandCursor--;
         }
 
         output = reverseCommand(commandCursor->twist);
     } else {
         output = CommandRepeater::idleTwistCommand();
     }
-    ROS_INFO_STREAM("CommandOfTime: " << output.linear.x);
     return output;
 }
 
 geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
 {
-    std::vector<geometry_msgs::PoseStamped>::iterator previousCursor = positionCursor;
-
     if(currentStatus == FORWARD) {
         while(positionCursor->header.stamp < time + ros::Duration(lookahead) && 
                 positionCursor < positions.end() - 1) {
-            previousCursor = positionCursor++;
+            positionCursor++;
         }
     } else if (currentStatus == REWIND) {
         while(positionCursor->header.stamp >= time - ros::Duration(lookahead) && 
-                positionCursor >= positions.begin()) {
-            previousCursor = positionCursor--;
+                positionCursor > positions.begin()) {
+            positionCursor--;
         }
     }
     return positionCursor->pose;
@@ -236,7 +256,13 @@ geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
 void Repeat::pausePlayback()
 {
     commandRepeaterTopic.publish(CommandRepeater::idleTwistCommand());
-    baseSimTime += ros::Time::now() - timePlaybackStarted;
+
+    if(currentStatus == FORWARD) {
+        baseSimTime += ros::Time::now() - timePlaybackStarted;
+    } else if (currentStatus == REWIND) {
+        baseSimTime -= ros::Time::now() - timePlaybackStarted;
+    }
+
     ROS_INFO("Paused at: %lf", baseSimTime.toSec());
 }
 

@@ -102,6 +102,7 @@ private:
     ros::Time simTime();
 
     void updateError(const sensor_msgs::PointCloud2& msg);
+    void updateAnchorPoint();
     geometry_msgs::Twist commandOfTime(ros::Time time);
     static geometry_msgs::Twist reverseCommand(geometry_msgs::Twist input);
     geometry_msgs::Pose poseOfTime(ros::Time time);
