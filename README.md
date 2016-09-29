@@ -1,7 +1,7 @@
 # husky-trainer
 
 A set of nodes that can do teach and repeat on a Clearpath Husky A200,
-under ROS.
+under ROS. Based on [this](http://www.first-mm.eu/files/sprunk13iros.pdf) paper.
 
 Tested under ROS Hydro.
 
