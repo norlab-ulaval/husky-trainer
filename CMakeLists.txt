@@ -14,7 +14,9 @@ find_package(catkin REQUIRED COMPONENTS
     dynamic_reconfigure
 )
 
-find_package(Eigen REQUIRED)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+
+find_package(Eigen3 REQUIRED)
 find_package(libpointmatcher REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(PCL REQUIRED COMPONENTS io)
