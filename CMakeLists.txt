@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
     geometry_msgs 
     roscpp
     pointmatcher_ros
+    libpointmatcher
     pcl_ros
     std_msgs
     message_generation
