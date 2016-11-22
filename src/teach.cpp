@@ -23,8 +23,6 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_datatypes.h>
 
-#include <clearpath_base/Encoders.h>
-
 #include "pointmatcher/PointMatcher.h"
 #include "pointmatcher_ros/point_cloud.h"
 #include "pointmatcher_ros/transform.h"
@@ -76,6 +74,7 @@ ros::Time teachingStartTime;
 std::vector<AnchorPoint> anchorPointList;
 boost::mutex anchorPointListMutex;
 geometry_msgs::Pose lastOdomPosition;
+geometry_msgs::Pose prevOdomPosition;
 PM::TransformationParameters tLidarToBaseLink;
 ros::Publisher* pCloudRecorderTopic;
 
@@ -169,15 +168,16 @@ void odomCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
 
     if(teachingStartTime != ros::Time(0))
     {
-        *pPositionRecord <<
+        *pPositionRecord <<																																											
             boost::lexical_cast<std::string>((ros::Time::now() - teachingStartTime).toSec()) << "," <<
             geo_util::poseToString(lastOdomPosition);
     }
-}
+}					
 
-void encodersCallback(const clearpath_base::Encoders::ConstPtr& msg)
+void encodersCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
 {
-    lastTravelRecorded = msg->encoders[0].travel;
+    lastTravelRecorded += sqrt((msg->pose.pose.position.x - prevOdomPosition.position.x)*(msg->pose.pose.position.x - prevOdomPosition.position.x) + (msg->pose.pose.position.y - prevOdomPosition.position.y)*(msg->pose.pose.position.y - prevOdomPosition.position.y) + (msg->pose.pose.position.z - prevOdomPosition.position.z)*(msg->pose.pose.position.z - prevOdomPosition.position.z));
+    prevOdomPosition = msg->pose.pose;
 }
 
 void velocityCallback(const geometry_msgs::Twist::ConstPtr& msg)
