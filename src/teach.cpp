@@ -61,7 +61,7 @@ std::ofstream* pPositionRecord;
 std::ofstream* pSpeedRecord;
 
 int nextCloudIndex;
-float lastTravelRecorded;
+float distanceTravelled;
 float travelOfLastAnchor;
 float lastYawRecorded;
 float yawOfLastAnchor;
@@ -124,19 +124,19 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 {
-    ROS_DEBUG("Travel: %f", fabs(lastTravelRecorded - travelOfLastAnchor));
+    ROS_DEBUG("Travel: %f", fabs(distanceTravelled - travelOfLastAnchor));
     ROS_DEBUG("Angle diff: %f", fabs(lastYawRecorded - yawOfLastAnchor));
 
     if(teachingStartTime != ros::Time(0))
     {
         // Check if we traveled enough to get a new cloud, or if the travel value
         // has overflowed since the last cloud was recorded.
-        if(fabs(lastTravelRecorded - travelOfLastAnchor) > distanceBetweenAnchorPoints ||
+        if(fabs(distanceTravelled - travelOfLastAnchor) > distanceBetweenAnchorPoints ||
                 fabs(lastYawRecorded - yawOfLastAnchor) > angleBetweenAnchorPoints)
         {
             ros::Time startTime = ros::Time::now();
 
-            travelOfLastAnchor = lastTravelRecorded;
+            travelOfLastAnchor = distanceTravelled;
             yawOfLastAnchor = lastYawRecorded;
 
             ROS_DEBUG("Saving a new anchor point");
@@ -176,7 +176,7 @@ void odomCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
 
 void encodersCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
 {
-    lastTravelRecorded += sqrt((msg->pose.pose.position.x - prevOdomPosition.position.x)*(msg->pose.pose.position.x - prevOdomPosition.position.x) + (msg->pose.pose.position.y - prevOdomPosition.position.y)*(msg->pose.pose.position.y - prevOdomPosition.position.y) + (msg->pose.pose.position.z - prevOdomPosition.position.z)*(msg->pose.pose.position.z - prevOdomPosition.position.z));
+    distanceTravelled += sqrt((msg->pose.pose.position.x - prevOdomPosition.position.x)*(msg->pose.pose.position.x - prevOdomPosition.position.x) + (msg->pose.pose.position.y - prevOdomPosition.position.y)*(msg->pose.pose.position.y - prevOdomPosition.position.y) + (msg->pose.pose.position.z - prevOdomPosition.position.z)*(msg->pose.pose.position.z - prevOdomPosition.position.z));
     prevOdomPosition = msg->pose.pose;
 }
 
@@ -235,7 +235,7 @@ int main(int argc, char **argv)
             PointMatcher_ros::transformListenerToEigenMatrix<float>(tfListener, ROBOT_FRAME,
                                                                     LIDAR_FRAME, ros::Time(0));
 
-    lastTravelRecorded = 0.0;
+    distanceTravelled = 0.0;
     travelOfLastAnchor = 0.0;
     lastYawRecorded = 0.0;
     yawOfLastAnchor = 0.0;
