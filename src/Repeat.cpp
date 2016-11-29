@@ -23,7 +23,7 @@ const std::string Repeat::DEFAULT_COMMAND_OUTPUT_TOPIC =
         "/teach_repeat/desired_command";
 
 const double Repeat::LOOP_RATE = 100.0;
-const std::string Repeat::JOY_TOPIC = "/joy";
+const std::string Repeat::JOY_TOPIC = "/joy_teleop/joy";
 const std::string Repeat::REFERENCE_POSE_TOPIC = "/teach_repeat/reference_pose";
 const std::string Repeat::ERROR_REPORTING_TOPIC = "/teach_repeat/raw_error";
 const std::string Repeat::AP_SWITCH_TOPIC = "/teach_repeat/ap_switch";
@@ -229,7 +229,7 @@ geometry_msgs::Twist Repeat::commandOfTime(ros::Time time)
 
         output = commandCursor->twist;
     } else if (currentStatus == REWIND) {
-        ros::Time lookaheadAdjustedTime = trySubstract(ros::Duration(lookahead), time);
+        ros::Time lookaheadAdjustedTime = trySubtract(ros::Duration(lookahead), time);
 
         while(commandCursor->header.stamp >= lookaheadAdjustedTime &&
                 commandCursor > commands.begin()) {
@@ -251,7 +251,7 @@ geometry_msgs::Pose Repeat::poseOfTime(ros::Time time)
             positionCursor++;
         }
     } else if (currentStatus == REWIND) {
-        while(positionCursor->header.stamp >= trySubstract(ros::Duration(lookahead), time)&&
+        while(positionCursor->header.stamp >= trySubtract(ros::Duration(lookahead), time)&&
                 positionCursor > positions.begin()) {
             positionCursor--;
         }
@@ -268,7 +268,7 @@ void Repeat::pausePlayback()
     } else if (currentStatus == REWIND) {
         ros::Duration delta = ros::Time::now() - timePlaybackStarted;
 
-        baseSimTime = trySubstract(delta, baseSimTime);
+        baseSimTime = trySubtract(delta, baseSimTime);
     }
 
     ROS_INFO("Paused at: %lf", baseSimTime.toSec());
@@ -290,7 +290,7 @@ ros::Time Repeat::simTime()
         // We can't compare a Duration to a Time, and it seems risky to ever
         // create a negative Time, so we add the delta to ros::Time(0) to
         // compare it with baseSimTime.
-        simTime = trySubstract(delta, baseSimTime);
+        simTime = trySubtract(delta, baseSimTime);
     } else {
         simTime = baseSimTime;
     }
@@ -419,7 +419,7 @@ geometry_msgs::Twist Repeat::reverseCommand(geometry_msgs::Twist input)
 }
 
 // Try to substract a value from a time without going into negative times.
-ros::Time Repeat::trySubstract(ros::Duration value, ros::Time from)
+ros::Time Repeat::trySubtract(ros::Duration value, ros::Time from)
 {
     return ros::Time(0.0) + value < from ?
                 from - value:

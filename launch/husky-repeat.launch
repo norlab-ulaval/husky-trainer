@@ -12,7 +12,7 @@
     </node>
     <node name="command_repeater" pkg="husky_trainer" type="command_repeater">
         <param name="input" value="/teach_repeat/desired_command" />
-        <param name="output" value="/husky/cmd_vel" />
+        <param name="output" value="/joy_teleop/cmd_vel" />
     </node>
     <node name="repeat_node" pkg="husky_trainer" type="repeat" output="screen">
         <param name="working_directory" value="$(arg working_directory)" />

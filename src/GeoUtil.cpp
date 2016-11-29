@@ -6,6 +6,18 @@
 namespace geo_util
 {
 
+    double euclidian_distance_of_poses(const geometry_msgs::Pose& from, const geometry_msgs::Pose& to) {
+        Eigen::Vector3d vector = vectorOfPoints(from.position, to.position);
+        return vector.norm();
+    }
+
+    double angle_between_poses(const geometry_msgs::Pose& from, const geometry_msgs::Pose& to) {
+        return quatTo2dYaw(
+            transFromQuatToQuat(
+                rosQuatToEigenQuat(from.orientation),
+                rosQuatToEigenQuat(to.orientation)));
+    }
+
 
 Eigen::Transform<double,3,Eigen::Affine> eigenTransformOfPoses(geometry_msgs::Pose from, geometry_msgs::Pose to)
 {
@@ -100,7 +112,7 @@ Eigen::Quaternionf rosQuatToEigenQuat(geometry_msgs::Quaternion rosQuat)
     return Eigen::Quaternionf(rosQuat.w, rosQuat.x, rosQuat.y, rosQuat.z);
 }
 
-Eigen::Vector3d vectorOfPoints(geometry_msgs::Point lhs, geometry_msgs::Point rhs)
+Eigen::Vector3d vectorOfPoints(const geometry_msgs::Point& lhs, const geometry_msgs::Point& rhs)
 {
     return Eigen::Vector3d(rhs.x - lhs.x, rhs.y - lhs.y, rhs.z - lhs.z);
 }

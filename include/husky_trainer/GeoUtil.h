@@ -19,6 +19,8 @@ typedef PointMatcher<float> PM;
 
 namespace geo_util {
 
+double euclidian_distance_of_poses(const geometry_msgs::Pose& from, const geometry_msgs::Pose& to);
+double angle_between_poses(const geometry_msgs::Pose& from, const geometry_msgs::Pose& to);
 Eigen::Quaternionf transFromQuatToQuat(Eigen::Quaternionf from, Eigen::Quaternionf to);
 double quatTo2dYaw(const geometry_msgs::Quaternion quat);
 double quatTo2dYaw(const Eigen::Quaternionf quat);
@@ -29,7 +31,7 @@ double customDistance(const geometry_msgs::Pose& lhs, const geometry_msgs::Pose&
 std::string poseToString(geometry_msgs::Pose pose);
 geometry_msgs::Pose stringToPose(std::string);
 Eigen::Quaternionf rosQuatToEigenQuat(geometry_msgs::Quaternion rosQuat);
-Eigen::Vector3d vectorOfPoints(geometry_msgs::Point lhs, geometry_msgs::Point rhs);
+Eigen::Vector3d vectorOfPoints(const geometry_msgs::Point& lhs, const geometry_msgs::Point& rhs);
 geometry_msgs::TwistStamped stampedTwistOfString(std::string in);
 geometry_msgs::PoseStamped stampedPoseOfString(std::string in);
 double linInterpolation(double x1, double y1, double x2, double y2, double t);

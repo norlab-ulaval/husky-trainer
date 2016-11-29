@@ -17,9 +17,9 @@
 #include <ros/callback_queue.h>
 #include <rosbag/bag.h>
 #include <sensor_msgs/Joy.h>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Twist.h>
+#include <nav_msgs/Odometry.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_datatypes.h>
 
@@ -36,11 +36,10 @@
 #define ANGLE_AP_PARAM "ap_angle"
 #define DEFAULT_WORKING_DIRECTORY ""  // current working directory
 
-#define JOYSTICK_TOPIC "/joy"
+#define JOYSTICK_TOPIC "/joy_teleop/joy"
 #define POINT_CLOUD_TOPIC "/velodyne_points"
-#define POSE_ESTIMATE_TOPIC "/robot_pose_ekf/odom_combined"
-#define WHEEL_TRAVEL_TOPIC "/husky/data/encoders"
-#define VEL_TOPIC "/husky/cmd_vel"
+#define POSE_ESTIMATE_TOPIC "/odometry/filtered"
+#define VEL_TOPIC "/joy_teleop/cmd_vel"
 #define CLOUD_RECORDER_TOPIC "/teach_repeat/anchor_points"
 
 #define ROBOT_FRAME "/base_footprint"
@@ -62,12 +61,13 @@ std::ofstream* pSpeedRecord;
 
 int nextCloudIndex;
 float distanceTravelled;
-float travelOfLastAnchor;
 float lastYawRecorded;
-float yawOfLastAnchor;
 
 double distanceBetweenAnchorPoints;
 double angleBetweenAnchorPoints;
+
+geometry_msgs::Pose poseOfLastAnchor;
+geometry_msgs::Pose lastPoseRecorded;
 
 // Path recording information.
 ros::Time teachingStartTime;
@@ -124,20 +124,21 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
 
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 {
-    ROS_DEBUG("Travel: %f", fabs(distanceTravelled - travelOfLastAnchor));
-    ROS_DEBUG("Angle diff: %f", fabs(lastYawRecorded - yawOfLastAnchor));
+    double distance_since_ap = geo_util::euclidian_distance_of_poses(lastOdomPosition, poseOfLastAnchor);
+    double angle_since_ap = geo_util::angle_between_poses(lastOdomPosition, poseOfLastAnchor);
+
+    ROS_INFO("Travel: %f", distance_since_ap);
+    ROS_INFO("Angle diff: %f", angle_since_ap);
 
     if(teachingStartTime != ros::Time(0))
     {
-        // Check if we traveled enough to get a new cloud, or if the travel value
-        // has overflowed since the last cloud was recorded.
-        if(fabs(distanceTravelled - travelOfLastAnchor) > distanceBetweenAnchorPoints ||
-                fabs(lastYawRecorded - yawOfLastAnchor) > angleBetweenAnchorPoints)
+        // Check if we traveled enough to get a new cloud.
+        if(distance_since_ap > distanceBetweenAnchorPoints ||
+           angle_since_ap > angleBetweenAnchorPoints)
         {
             ros::Time startTime = ros::Time::now();
 
-            travelOfLastAnchor = distanceTravelled;
-            yawOfLastAnchor = lastYawRecorded;
+            poseOfLastAnchor = lastOdomPosition;
 
             ROS_DEBUG("Saving a new anchor point");
 
@@ -157,27 +158,22 @@ void joystickCallback(const sensor_msgs::Joy::ConstPtr& joy)
     if(joy->buttons[Y_BUTTON_INDEX] == 1 && teachingStartTime == ros::Time(0))
     {
         ROS_INFO("Starting Teaching.");
-        teachingStartTime = ros::Time::now(); 
+        teachingStartTime = ros::Time::now();
     }
 }
 
-void odomCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
+void odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
+    // Update the list of poses.
     lastOdomPosition = msg->pose.pose;
     lastYawRecorded = geo_util::quatTo2dYaw(msg->pose.pose.orientation);
 
     if(teachingStartTime != ros::Time(0))
     {
-        *pPositionRecord <<																																											
+        *pPositionRecord <<
             boost::lexical_cast<std::string>((ros::Time::now() - teachingStartTime).toSec()) << "," <<
             geo_util::poseToString(lastOdomPosition);
     }
-}					
-
-void encodersCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
-{
-    distanceTravelled += sqrt((msg->pose.pose.position.x - prevOdomPosition.position.x)*(msg->pose.pose.position.x - prevOdomPosition.position.x) + (msg->pose.pose.position.y - prevOdomPosition.position.y)*(msg->pose.pose.position.y - prevOdomPosition.position.y) + (msg->pose.pose.position.z - prevOdomPosition.position.z)*(msg->pose.pose.position.z - prevOdomPosition.position.z));
-    prevOdomPosition = msg->pose.pose;
 }
 
 void velocityCallback(const geometry_msgs::Twist::ConstPtr& msg)
@@ -195,6 +191,7 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "husky_teach");
     ros::NodeHandle n("~");
+
 
     n.getParam(WORKING_DIRECTORY_PARAM, workingDirectory);
     n.param<double>(AP_TRIGGER_PARAM, 
@@ -215,8 +212,6 @@ int main(int argc, char **argv)
         n.subscribe(JOYSTICK_TOPIC, 5000, joystickCallback);
     ros::Subscriber pose_topic =
         n.subscribe(POSE_ESTIMATE_TOPIC, 1000, odomCallback);
-    ros::Subscriber encoderTopic =
-        n.subscribe(WHEEL_TRAVEL_TOPIC, 1000, encodersCallback);
     ros::Subscriber velTopic =
         n.subscribe(VEL_TOPIC, 1000, velocityCallback);
     tf::TransformListener tfListener;
@@ -236,9 +231,7 @@ int main(int argc, char **argv)
                                                                     LIDAR_FRAME, ros::Time(0));
 
     distanceTravelled = 0.0;
-    travelOfLastAnchor = 0.0;
     lastYawRecorded = 0.0;
-    yawOfLastAnchor = 0.0;
     teachingStartTime = ros::Time(0);
 
     ros::Rate loop_rate(LOOP_RATE);

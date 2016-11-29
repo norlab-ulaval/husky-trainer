@@ -100,7 +100,7 @@ private:
     void pausePlayback();
     void startPlayback();
     ros::Time simTime();
-    ros::Time trySubstract(ros::Duration value, ros::Time from);
+    ros::Time trySubtract(ros::Duration value, ros::Time from);
 
     void updateError(const sensor_msgs::PointCloud2& msg);
     void updateAnchorPoint();
