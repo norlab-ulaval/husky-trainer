@@ -17,5 +17,6 @@
     <node name="repeat_node" pkg="husky_trainer" type="repeat" output="screen">
         <param name="working_directory" value="$(arg working_directory)" />
         <param name="readings_topic" value="/velodyne_points" />
+        <param name="_lambda_x" value="1.0" />
     </node>
 </launch>

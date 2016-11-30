@@ -65,6 +65,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN_INCLUDE_DIRS}
   ${libpointmatcher_INCLUDE_DIRS}
+  ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
 )
 
 link_directories(${Eigen_LIBRARY_DIRS} ${libpointmatcher_LIB})
@@ -93,7 +94,7 @@ src/Controller.cpp
 src/Repeat.cpp
 src/repeat_main.cpp
 )
-add_dependencies(repeat husky_trainer_generate_messages_cpp)
+add_dependencies(repeat husky_trainer_generate_messages_cpp ${PROJECT_NAME}_gencfg)
 
 add_executable(
 command_repeater
@@ -113,6 +114,7 @@ target_link_libraries(teach_cloud_recorder ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 target_link_libraries(teach ${catkin_LIBRARIES} pointmatcher)
 target_link_libraries(repeat ${catkin_LIBRARIES})
 target_link_libraries(command_repeater ${catkin_LIBRARIES})
+
 
 
 catkin_add_gtest(

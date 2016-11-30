@@ -48,7 +48,7 @@
 #define Y_BUTTON_INDEX 3
 
 #define DEFAULT_AP_TRIGGER 0.1  // The approx distance we want between every anchor point.
-#define DEFAULT_AP_ANGLE 0.1
+#define DEFAULT_AP_ANGLE 0.01
 #define LOOP_RATE 100
 #define L_SEP ","
 
@@ -82,7 +82,7 @@ void saveAnchorPointList(std::vector<AnchorPoint>& list)
 {
     std::ofstream anchorPointListFile;
     anchorPointListFile.open("anchorPoints.apd");
-   
+
     for(int i=0; i < anchorPointList.size(); i++)
     {
         anchorPointListFile << list[i];
@@ -100,10 +100,10 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
     pointmatching_tools::applyTransform(dataPoints, tLidarToBaseLink);
 
     husky_trainer::NamedPointCloud namedCloud;
-    namedCloud.cloud = 
+    namedCloud.cloud =
         PointMatcher_ros::pointMatcherCloudToRosMsg<float>(
-            dataPoints, 
-            ROBOT_FRAME, 
+            dataPoints,
+            ROBOT_FRAME,
             ros::Time::now()
         );
 
@@ -114,6 +114,7 @@ void recordCloud(const sensor_msgs::PointCloud2& msg)
     namedCloud.name = ss.str();
 
     pCloudRecorderTopic->publish(namedCloud);
+    ROS_INFO("Recorded a new cloud.");
 
     AnchorPoint newAnchorPoint(namedCloud.name, lastOdomPosition);
 
@@ -129,12 +130,13 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 
     ROS_INFO("Travel: %f", distance_since_ap);
     ROS_INFO("Angle diff: %f", angle_since_ap);
+    ROS_INFO("Angle trigger: %f", angleBetweenAnchorPoints);
 
     if(teachingStartTime != ros::Time(0))
     {
         // Check if we traveled enough to get a new cloud.
-        if(distance_since_ap > distanceBetweenAnchorPoints ||
-           angle_since_ap > angleBetweenAnchorPoints)
+        if(fabs(distance_since_ap) > distanceBetweenAnchorPoints ||
+           fabs(angle_since_ap) > angleBetweenAnchorPoints)
         {
             ros::Time startTime = ros::Time::now();
 
@@ -215,7 +217,7 @@ int main(int argc, char **argv)
     ros::Subscriber velTopic =
         n.subscribe(VEL_TOPIC, 1000, velocityCallback);
     tf::TransformListener tfListener;
-    ros::Publisher cloudRecorderTopic = 
+    ros::Publisher cloudRecorderTopic =
         n.advertise<husky_trainer::NamedPointCloud>(CLOUD_RECORDER_TOPIC, 100);
     pCloudRecorderTopic = &cloudRecorderTopic;
 
