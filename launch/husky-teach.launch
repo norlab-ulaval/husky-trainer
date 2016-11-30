@@ -1,6 +1,6 @@
 <launch>
     <arg name="ap_distance" default="0.1" />
-    <arg name="ap_angle" default="0.001" />
+    <arg name="ap_angle" default="0.01" />
 
     <include file="$(find velodyne_pointcloud)/launch/32e_points.launch" />
     <node name="cloud_recorder" pkg="husky_trainer" type="teach_cloud_recorder" cwd="node"> 
