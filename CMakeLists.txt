@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(husky_trainer)
 
-set(CMAKE_BUILD_TYPE Debug)
-
 find_package(catkin REQUIRED COMPONENTS 
     sensor_msgs 
     geometry_msgs 
@@ -36,7 +34,7 @@ generate_messages(
 )
 
 generate_dynamic_reconfigure_options(
-    cfg/repeat_params.cfg
+    cfg/Repeat.cfg
 )
 
 catkin_package(
@@ -81,7 +79,7 @@ src/PointMatching.cpp
 src/AnchorPoint.cpp
 src/teach.cpp
 )
-add_dependencies(teach husky_trainer_generate_messages_cpp)
+add_dependencies(teach ${${PROJECT_NAME}_EXPORTED_TARGETS}) 
 
 add_executable(
 repeat
@@ -94,7 +92,7 @@ src/Controller.cpp
 src/Repeat.cpp
 src/repeat_main.cpp
 )
-add_dependencies(repeat husky_trainer_generate_messages_cpp ${PROJECT_NAME}_gencfg)
+add_dependencies(repeat ${${PROJECT_NAME}_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 add_executable(
 command_repeater
