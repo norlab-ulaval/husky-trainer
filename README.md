@@ -3,7 +3,7 @@
 A set of nodes that can do teach and repeat on a Clearpath Husky A200,
 under ROS. Based on [this](http://www.first-mm.eu/files/sprunk13iros.pdf) paper.
 
-Tested under ROS Hydro.
+Tested under ROS Hydro and Indigo.
 
 ## How it works
 
@@ -15,6 +15,11 @@ the point clouds he reads to the point clouds he saved during the teach phase,
 and computes the transformation to go from the reading to the recorded point
 cloud. This transformation is then sent to a controller that will try to
 compensate the error.
+
+## Dependencies
+
+- [libpointmatcher](https://github.com/ethz-asl/libpointmatcher)
+- A forked version of [pointmatcher-ros](https://github.com/MobileRobotics-Ulaval/pointmatcher-ros)
 
 ## Usage
 
